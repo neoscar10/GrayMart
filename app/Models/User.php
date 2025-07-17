@@ -8,11 +8,12 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 use Laravel\Jetstream\HasProfilePhoto;
-use Laravel\Sanctum\HasApiTokens;
+
+
 
 class User extends Authenticatable
 {
-    use HasApiTokens;
+  
 
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory;
@@ -30,6 +31,13 @@ class User extends Authenticatable
         'email',
         'password',
     ];
+
+    protected $casts = [
+        'email_verified_at' => 'datetime',
+        'is_active' => 'boolean',
+        'is_approved' => 'boolean',
+    ];
+    
 
     /**
      * The attributes that should be hidden for serialization.
@@ -64,4 +72,16 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    // in class User extends Authenticatable
+    public function bids()
+    {
+        return $this->hasMany(Bid::class);
+    }
+
+    public function vendorAuctions()
+    {
+        return $this->hasMany(Auction::class, 'vendor_id');
+    }
+
 }
