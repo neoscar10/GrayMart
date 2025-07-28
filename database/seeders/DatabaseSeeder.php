@@ -24,6 +24,11 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             CategorySeeder::class,
             ProductSeeder::class,
+            AuctionSeeder::class,
+            ReviewSeeder::class,
+            VariantAttributesSeeder::class,
+            ProductVariantsSeeder::class,
+
          ]);
     }
 }

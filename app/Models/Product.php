@@ -18,6 +18,7 @@ class Product extends Model
         'images',
         'video_url',
         'is_reserved',
+        'is_signed', 
         'status',
         'is_active',
         'rejection_reason',
@@ -27,6 +28,7 @@ class Product extends Model
     protected $casts = [
         'images'       => 'array',
         'is_reserved'  => 'boolean',
+        'is_signed'   => 'boolean',
         'is_active'    => 'boolean',
         'rejected_at' => 'datetime',
     ];
@@ -60,6 +62,16 @@ class Product extends Model
     public function certificates()
     {
         return $this->hasMany(Certificate::class);
+    }
+
+    public function reviews()
+    {
+    return $this->morphMany(Review::class,'rateable');
+    }
+
+    public function variants()
+    {
+        return $this->hasMany(ProductVariant::class);
     }
 
 }

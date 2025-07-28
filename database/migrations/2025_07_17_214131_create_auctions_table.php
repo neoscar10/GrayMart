@@ -16,8 +16,8 @@ return new class extends Migration
             $table->foreignId('product_id')->constrained()->onDelete('cascade');
             $table->foreignId('vendor_id')
                   ->constrained('users')->onDelete('cascade');
-            $table->timestamp('starts_at');
-            $table->timestamp('ends_at');
+            $table->timestamp('starts_at')->nullable();
+            $table->timestamp('ends_at')->nullable();
             $table->integer('anti_sniping_window')
                   ->default(30)
                   ->comment('seconds before end_at to auto‑extend');

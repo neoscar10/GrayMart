@@ -10,17 +10,12 @@
                 </div>
             </li>
             <li class="sidebar-list">
-                <a class="sidebar-link" href="javascript:void(0)">
+                <a class="sidebar-link" href="{{route('admin.dashboard')}}">
                     <svg class="stroke-icon">
-                        <use href="...#Home-dashboard"></use>
+                        <use href="...#User"></use>
                     </svg>
-                    <h6>Dashboard</h6><i class="iconly-Arrow-Right-2 icli"></i>
+                    <h6>Dashboard and analytics</h6>
                 </a>
-                <ul class="sidebar-submenu">
-                    <li><a href="#">Overview</a></li>
-                    <li><a href="#">Vendor Analytics</a></li>
-                    <li><a href="#">Sales Reports</a></li>
-                </ul>
             </li>
 
             @if (Auth::user()->role == 'admin')
@@ -82,18 +77,25 @@
                 </li>
 
                 <li class="sidebar-list">
-                    <a class="sidebar-link" href=""><svg class="stroke-icon">
+                    <a class="sidebar-link" href="{{route('admin.auction-management')}}"><svg class="stroke-icon">
                             <use href=""></use>
                         </svg>
-                        <h6>Manage Coupons</h6>
+                        <h6>Manage Auctions</h6>
                     </a>
                 </li>
 
                 <li class="sidebar-list">
-                    <a class="sidebar-link" href="#"><svg class="stroke-icon">
+                    <a class="sidebar-link" href="{{route('admin.manage-variants')}}"><svg class="stroke-icon">
                             <use href=""></use>
                         </svg>
                         <h6>Sizes & Variants</h6>
+                    </a>
+                </li>
+                <li class="sidebar-list">
+                    <a class="sidebar-link" href="{{ route('admin.reviews') }}"><svg class="stroke-icon">
+                            <use href=""></use>
+                        </svg>
+                        <h6>Review Moderation</h6>
                     </a>
                 </li>
 
@@ -107,7 +109,7 @@
                 </div>
             </li>
                 <li class="sidebar-list">
-                    <a class="sidebar-link" href="{" wire:navigate><svg class="stroke-icon">
+                    <a class="sidebar-link" href="{{route('admin.order-management')}}" wire:navigate><svg class="stroke-icon">
                             <use href="...#Bag"></use>
                         </svg>
                         <h6>Orders</h6>

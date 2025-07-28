@@ -9,6 +9,10 @@
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css?family=Rubik:400,500,600" rel="stylesheet">
 
+    {{-- Alpine --}}
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+
     <!-- CSS -->
     @include('admin.partials.css')
 
@@ -40,7 +44,12 @@
     <!-- JS -->
    @include('admin.partials._js')
 
+    
+
     @livewireScripts
+    @stack('scripts')
+    <script src="//unpkg.com/alpinejs" defer></script>
+
 </body>
 
 </html>
