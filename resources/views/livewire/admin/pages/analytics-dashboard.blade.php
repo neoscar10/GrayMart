@@ -46,9 +46,9 @@
   >
     <div class="card-header d-flex justify-content-between">
       <span>Monthly Revenue</span>
-      <button wire:click="exportRevenueCsv" class="btn btn-sm btn-outline-secondary">
+      {{-- <button wire:click="exportRevenueCsv" class="btn btn-sm btn-outline-secondary">
         <i class="fas fa-file-csv me-1"></i> CSV
-      </button>
+      </button> --}}
     </div>
     <div class="card-body">
       <div x-ref="chart"></div>

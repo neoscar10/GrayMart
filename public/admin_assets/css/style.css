@@ -47627,3 +47627,40 @@ label {
   height: 50px;
   object-fit: cover;
 }
+
+
+
+
+ /* Side bar styles  */
+/* Active state for current page in sidebar */
+.sidebar-link.active {
+  position: relative;
+  background: #f1f5ff;
+  /* subtle highlight */
+  color: #0d6efd !important;
+  /* Bootstrap primary-ish */
+  border-radius: 8px;
+}
+
+.sidebar-link.active .stroke-icon {
+  filter: hue-rotate(180deg) saturate(1.2);
+  /* gentle icon pop; optional */
+}
+
+/* Left accent bar */
+.sidebar-link.active::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  /* adjust to align with your layout padding */
+  top: 10%;
+  bottom: 10%;
+  width: 4px;
+  background: #0d6efd;
+  border-radius: 0 4px 4px 0;
+}
+
+/* Hover should feel clickable but not fight active */
+.sidebar-link:hover {
+  background: #f8f9ff;
+}

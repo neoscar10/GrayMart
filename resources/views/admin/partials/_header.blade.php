@@ -1,27 +1,24 @@
 <style>
     .custom-menu {
-    display: none;
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background: white;
-    min-width: 150px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    border-radius: 5px;
-    z-index: 1000;
-}
+        display: none;
+        position: absolute;
+        top: 100%;
+        right: 0;
+        background: white;
+        min-width: 150px;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+        border-radius: 5px;
+        z-index: 1000;
+    }
 
-.custom-menu.show {
-    display: block;
-}
+    .custom-menu.show {
+        display: block;
+    }
 
-.cursor-pointer {
-    cursor: pointer;
-}
-
+    .cursor-pointer {
+        cursor: pointer;
+    }
 </style>
-
-
 
 <header class="page-header row">
     <!-- Left Logo -->
@@ -29,7 +26,12 @@
         <a href="{{ route('admin.dashboard') }}">
             <img class="dark-logo img-fluid" src="{{ asset('admin_assets/images/logo/logo-dark.png') }}" alt="logo">
         </a>
-        <a class="close-btn toggle-sidebar" href="javascript:void(0)">X</a>
+
+       
+        <a class="close-btn toggle-sidebar ms-2" href="javascript:void(0)" aria-label="Toggle sidebar">
+           
+            <i class="fa-solid fa-bars fa-lg"></i>
+        </a>
     </div>
 
     <!-- Header Content -->
@@ -49,6 +51,9 @@
         <!-- Right Profile Dropdown -->
         <div class="nav-right">
             <ul class="header-right mb-0 d-flex align-items-center">
+                {{-- Bell Icon --}}
+                <li><livewire:notification-bell /></li>
+
                 <li class="profile-nav custom-dropdown position-relative">
                     <div class="user-wrap cursor-pointer">
                         <div class="user-img">
@@ -64,6 +69,7 @@
                             @endif
                         </div>
                     </div>
+
                     <div class="custom-menu overflow-hidden">
                         <ul class="profile-body list-unstyled m-0 p-2">
                             <li class="py-1">
@@ -89,23 +95,31 @@
     </div>
 </header>
 
-
-
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-            const profileNav = document.querySelector('.profile-nav');
-            const customMenu = profileNav.querySelector('.custom-menu');
+        // Profile dropdown (unchanged)
+        const profileNav = document.querySelector('.profile-nav');
+        const customMenu = profileNav?.querySelector('.custom-menu');
+        if (profileNav && customMenu) {
+            profileNav.addEventListener('click', function (event) {
+                event.stopPropagation();
+                customMenu.classList.toggle('show');
+            });
+            document.addEventListener('click', function () {
+                customMenu.classList.remove('show');
+            });
+        }
 
-            if (profileNav && customMenu) {
-                profileNav.addEventListener('click', function (event) {
-                    event.stopPropagation();
-                    customMenu.classList.toggle('show');
-                });
+        // Sidebar icon toggle (keeps your existing sidebar behavior)
+        const sidebarToggle = document.querySelector('.toggle-sidebar');
+        const icon = sidebarToggle?.querySelector('i');
 
-                // Close dropdown on outside click
-                document.addEventListener('click', function () {
-                    customMenu.classList.remove('show');
-                });
-            }
-        });
+        if (sidebarToggle && icon) {
+            // On click: just swap the icon class; your existing sidebar JS still runs
+            sidebarToggle.addEventListener('click', function () {
+                icon.classList.toggle('fa-bars');
+                icon.classList.toggle('fa-xmark'); // close icon
+            });
+        }
+    });
 </script>

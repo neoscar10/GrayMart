@@ -1,4 +1,7 @@
 <div>
+  <div class="pt-4">
+    <h2>Sizes & Variants</h2>
+  </div>
   <div class="row pt-4 gx-4">
     @if(session()->has('success'))
     <div class="alert alert-success alert-dismissible fade show">

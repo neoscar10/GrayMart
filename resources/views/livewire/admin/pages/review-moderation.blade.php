@@ -1,9 +1,12 @@
 {{-- resources/views/livewire/admin/pages/review-moderation.blade.php --}}
 <div>
+    <div class="pt-4">
+        <h2>Product Revies Management</h2>
+    </div>
     {{-- Filters --}}
-    <div class="row mb-3">
-        <div class="col"><input class="form-control" wire:model.live="search" placeholder="Search comments…"></div>
-        <div class="col-auto">
+    <div class="row mb-3 pt-4">
+        <div class="col-4"><input class="form-control" wire:model.live="search" placeholder="Search comments…"></div>
+        <div class="col-4">
             <select class="form-select" wire:model.live="status">
                 <option value="">All Status</option>
                 <option value="pending">Pending</option>
@@ -11,7 +14,7 @@
                 <option value="rejected">Rejected</option>
             </select>
         </div>
-        <div class="col-auto form-check">
+        <div class="col-3 form-check pt-1">
             <input type="checkbox" id="rep" class="form-check-input" wire:model.live="reportedOnly">
             <label for="rep" class="form-check-label">Reported only</label>
         </div>
@@ -35,7 +38,7 @@
                 @forelse($reviews as $r)
                             <tr>
                                 <td>{{ $r->user->name }}</td>
-                                <td>{{ class_basename($r->rateable_type) }} #{{ $r->rateable_id }}</td>
+                                <td>{{ class_basename($r->rateable_type) }} {{ $r->rateable_id }}</td>
                                 <td>{{ $r->rating }}</td>
                                 <td title="{{ $r->comment }}">{{ Str::limit($r->comment, 30) }}</td>
                                 <td>
@@ -49,10 +52,10 @@
                                 </td>
                                 <td>
                                     <span class="badge bg-{{ 
-                            $r->status === 'approved' ? 'success'
+                                                        $r->status === 'approved' ? 'success'
         : ($r->status === 'rejected' ? 'danger'
             : 'warning text-dark')
-                          }}">
+                                                    }}">
                                         {{ ucfirst($r->status) }}
                                     </span>
                                 </td>
@@ -71,7 +74,9 @@
                 @endforelse
             </tbody>
         </table>
+       <div class="pt-4">
         {{ $reviews->links() }}
+       </div>
     </div>
 
     {{-- Reject Modal --}}

@@ -1,6 +1,6 @@
 <div>
     {{-- Tabs --}}
-    <ul class="nav nav-tabs">
+    <ul class="nav nav-tabs pt-4">
       @foreach(['certificates' => 'Certificates', 'upcoming' => 'Upcoming', 'live' => 'Live', 'closed' => 'Closed'] as $key => $label)
         <li class="nav-item">
           <a href="#"
@@ -43,80 +43,80 @@
         </thead>
         <tbody>
           @forelse($items as $item)
-            <tr>
-              @if($tab === 'certificates')
-                        <td>{{ $item->product->name }}</td>
-                        <td>{{ $item->product->vendor->name }}</td>
-                        <td>{{ $item->created_at->format('Y-m-d H:i') }}</td>
-                        <td>
-                          <span class="badge bg-{{ 
-                            $item->status === 'approved' ? 'success'
-            : ($item->status === 'rejected' ? 'danger' : 'warning') 
-                          }}">
-                            {{ ucfirst($item->status) }}
-                          </span>
-                        </td>
-                        <td>
-                          <a href="{{ Storage::url($item->file_path) }}" target="_blank"
-                             class="btn btn-sm btn-outline-secondary me-1">
-                            <i class="fa-solid fa-file-pdf"></i>
-                          </a>
-                          @if($item->status === 'pending')
-                            <button wire:click="openApproveCertificateModal({{ $item->id }})"
-                                    class="btn btn-sm btn-success me-1">
-                              <i class="fa-solid fa-check"></i>
-                            </button>
-                            <button wire:click="openRejectCertificateModal({{ $item->id }})"
-                                    class="btn btn-sm btn-danger">
-                              <i class="fa-solid fa-ban"></i>
-                            </button>
-                          @endif
+          <tr>
+          @if($tab === 'certificates')
+          <td>{{ $item->product->name }}</td>
+          <td>{{ $item->product->vendor->name }}</td>
+          <td>{{ $item->created_at->format('Y-m-d H:i') }}</td>
+          <td>
+          <span class="badge bg-{{ 
+          $item->status === 'approved' ? 'success'
+        : ($item->status === 'rejected' ? 'danger' : 'warning') 
+          }}">
+          {{ ucfirst($item->status) }}
+          </span>
+          </td>
+          <td>
+          <a href="{{ Storage::url($item->file_path) }}" target="_blank"
+           class="btn btn-sm btn-outline-secondary me-1">
+          <i class="fa-solid fa-file-pdf"></i>
+          </a>
+          @if($item->status === 'pending')
+          <button wire:click="openApproveCertificateModal({{ $item->id }})"
+          class="btn btn-sm btn-success me-1">
+          <i class="fa-solid fa-thumbs-up"></i> Approve
+          </button>
+          <button wire:click="openRejectCertificateModal({{ $item->id }})"
+          class="btn btn-sm btn-danger">
+          <i class="fa-solid fa-thumbs-down"></i> Reject
+          </button>
+          @endif
 
-                        @if($item->status === 'approved')
-                            <button wire:click="openRejectCertificateModal({{ $item->id }})" class="btn btn-sm btn-danger">
-                                <i class="fa-solid fa-ban"></i>
-                            </button>
-                        @endif
+          @if($item->status === 'approved')
+          <button wire:click="openRejectCertificateModal({{ $item->id }})" class="btn btn-sm btn-danger">
+          <i class="fa-solid fa-ban"></i>
+          </button>
+          @endif
 
-                        @if($item->status === 'rejected')
-                            <button wire:click="openApproveCertificateModal({{ $item->id }})" class="btn btn-sm btn-success me-1">
-                                <i class="fa-solid fa-check"></i>
-                            </button>
-                        @endif
-                        </td>
-              @else
-                <td>{{ $item->product->name }}</td>
-                <td>{{ $item->product->vendor->name }}</td>
-                <td>{{ $item->starts_at->format('Y-m-d H:i') }}</td>
-                <td>{{ $item->ends_at->format('Y-m-d H:i') }}</td>
-                <td>
-                  <span class="badge bg-{{ 
-                    $item->status === 'live' ? 'info'
-            : ($item->status === 'scheduled' ? 'secondary' : 'dark')
-                  }}">
-                    {{ ucfirst($item->status) }}
-                  </span>
-                </td>
-                <td>
-                  @if($tab === 'upcoming')
-                    <button wire:click="forceStartAuction({{ $item->id }})"
-                            class="btn btn-sm btn-primary">
-                      <i class="fa-solid fa-play"></i>
-                    </button>
-                  @elseif($tab === 'live')
-                    <button wire:click="openBidsModal({{ $item->id }})"
-                            class="btn btn-sm btn-outline-info me-1">
-                      <i class="fa-solid fa-list"></i>
-                    </button>
-                    <button wire:click="forceCloseAuction({{ $item->id }})"
-                            class="btn btn-sm btn-danger">
-                      <i class="fa-solid fa-stop"></i>
-                    </button>
-                  @endif
-                </td>
-              @endif
-            </tr>
-          @empty
+          @if($item->status === 'rejected')
+        <button wire:click="openApproveCertificateModal({{ $item->id }})" class="btn btn-sm btn-success me-1">
+        <i class="fa-solid fa-thumbs-up"></i> Approve
+        </button>
+        @endif
+          </td>
+      @else
+          <td>{{ $item->product->name }}</td>
+          <td>{{ $item->product->vendor->name }}</td>
+          <td>{{ $item->starts_at->format('Y-m-d H:i') }}</td>
+          <td>{{ $item->ends_at->format('Y-m-d H:i') }}</td>
+          <td>
+          <span class="badge bg-{{ 
+          $item->status === 'live' ? 'info'
+        : ($item->status === 'scheduled' ? 'secondary' : 'dark')
+          }}">
+          {{ ucfirst($item->status) }}
+          </span>
+          </td>
+          <td>
+          @if($tab === 'upcoming')
+          <button wire:click="forceStartAuction({{ $item->id }})"
+            class="btn btn-sm btn-primary">
+          <i class="fa-solid fa-play"></i>
+          </button>
+          @elseif($tab === 'live')
+          <button wire:click="openBidsModal({{ $item->id }})"
+            class="btn btn-sm btn-outline-info me-1">
+          <i class="fa-solid fa-list"></i>
+          </button>
+          <button wire:click="forceCloseAuction({{ $item->id }})"
+            class="btn btn-sm btn-danger">
+          <i class="fa-solid fa-stop"></i>
+          </button>
+          @endif
+          </td>
+          @endif
+          </tr>
+      @empty
             <tr>
               <td colspan="{{ $tab === 'certificates' ? 5 : 6 }}" class="text-center">
                 No items found.
@@ -145,11 +145,11 @@
                     Cancel
                 </button>
                 <button wire:click="approveCertificateConfirmed" class="btn btn-success">
-                    <i class="fa-solid fa-check me-1"></i> Approve
+                    <i class="fa-solid fa-thumbs-up"></i> Approve
                 </button>
                 <button wire:click="openRejectCertificateModal({{ $selectedCertificate->id ?? '0' }})"
                     class="btn btn-danger">
-                    <i class="fa-solid fa-ban me-1"></i> Reject
+                    <i class="fa-solid fa-thumbs-down"></i> Reject
                 </button>
             </div>
         </div>
@@ -170,7 +170,7 @@
                 <div class="modal-body">
                     <div class="mb-3">
                         <label class="form-label">Reason</label>
-                        <textarea class="form-control" rows="4" wire:model.defer="rejectionReason"></textarea>
+                        <textarea class="form-control" rows="4" cols="100" wire:model.defer="rejectionReason"></textarea>
                         @error('rejectionReason')
                             <span class="text-danger">{{ $message }}</span>
                         @enderror
@@ -213,8 +213,8 @@
                     <tr>
                       <td>
                         {{ optional($selectedAuction)->bidder_anonymous
-            ? 'Anonymous'
-            : $bid->user->name }}
+      ? 'Anonymous'
+      : $bid->user->name }}
                       </td>
                       <td>${{ number_format($bid->amount, 2) }}</td>
                       <td>{{ $bid->created_at->format('H:i:s d-m-Y') }}</td>

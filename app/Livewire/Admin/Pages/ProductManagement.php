@@ -255,26 +255,34 @@ class ProductManagement extends Component
     }
 
     public function render()
-    {
-        $query = Product::with(['vendor','category','certificates'])
-            ->when($this->search, fn($q)=> $q->where('name','like',"%{$this->search}%"))
-            ->when($this->vendorFilter, fn($q)=> $q->where('vendor_id',$this->vendorFilter))
-            ->when($this->categoryFilter, function($q){
-                if ($c = Category::find($this->categoryFilter)) {
-                    $q->whereIn('category_id',$this->getDescendantIds($c));
-                }
-            })
-            ->when($this->statusFilter, fn($q)=> $q->where('status',$this->statusFilter))
-            ->when($this->reservedOnly, fn($q)=> $q->where('is_reserved',true))
-            ->orderByDesc('created_at');
+{
+    $query = Product::with([
+            'vendor',
+            'category',
+            'certificates',
+            // Preload variants (lightweight fields for table math)
+            'variants:id,product_id,price,stock,sku',
+        ])
+        ->withCount('variants')
+        ->when($this->search, fn($q)=> $q->where('name','like',"%{$this->search}%"))
+        ->when($this->vendorFilter, fn($q)=> $q->where('vendor_id',$this->vendorFilter))
+        ->when($this->categoryFilter, function($q){
+            if ($c = Category::find($this->categoryFilter)) {
+                $q->whereIn('category_id',$this->getDescendantIds($c));
+            }
+        })
+        ->when($this->statusFilter, fn($q)=> $q->where('status',$this->statusFilter))
+        ->when($this->reservedOnly, fn($q)=> $q->where('is_reserved',true))
+        ->orderByDesc('created_at');
 
-        $products = $query->paginate(10);
-        $vendors = User::where('role','vendor')->get();
-        $categories = Category::all();
-        $attributeValues = $this->attributeValues;
+    $products   = $query->paginate(10);
+    $vendors    = User::where('role','vendor')->get();
+    $categories = Category::all();
+    $attributeValues = $this->attributeValues;
 
-        return view('livewire.admin.pages.product-management', compact(
-            'products','vendors','categories','attributeValues'
-        ))->layout('components.layouts.admin');
-    }
+    return view('livewire.admin.pages.product-management', compact(
+        'products','vendors','categories','attributeValues'
+    ))->layout('components.layouts.admin');
+}
+
 }
