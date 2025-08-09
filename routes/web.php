@@ -14,6 +14,7 @@ use App\Livewire\Admin\Pages\ReviewModeration;
 use App\Livewire\Admin\Pages\VendorList;
 use Illuminate\Support\Facades\Route;
 use App\Livewire\NotificationsPage;
+use App\Livewire\Vendor\Pages\AnalyticsDashboard as PagesAnalyticsDashboard;
 use Illuminate\Support\Facades\Mail;
 
 
@@ -50,11 +51,11 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
      
 });
 
-Route::get('test', [TestController::class, 'index']);
-Route::get('/dev/test-mail', function() {
-    Mail::raw('Testing mail via a quick route.', function($msg) {
-        $msg->to('neoscar10@gmail.com')   // your admin email
-            ->subject('Route Mail Test');
+// Vendor Routes.....
+Route::middleware(['auth','vendor',])
+    ->prefix('vendor')
+    ->name('vendor.')
+    ->group(function () {
+        Route::get('dashboard', PagesAnalyticsDashboard::class)->name('dashboard');
+        
     });
-    return 'Mail sent (or queued)! Check your inbox/Mailtrap.';
-});

@@ -5,7 +5,13 @@ namespace App\Providers;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
 use App\Models\Review;
+use App\Models\Product;
+use App\Models\Auction;
+use App\Models\Certificate;
 use App\Policies\ReviewPolicy;
+use App\Policies\ProductPolicy;
+use App\Policies\AuctionPolicy;
+use App\Policies\CertificatePolicy;
 
 class AuthServiceProvider extends ServiceProvider
 {
@@ -14,12 +20,15 @@ class AuthServiceProvider extends ServiceProvider
      * 
      */
     protected $policies = [
-        Review::class => ReviewPolicy::class,
-        
+        Review::class      => ReviewPolicy::class,
+        Product::class     => ProductPolicy::class,
+        Auction::class     => AuctionPolicy::class,
+        Certificate::class => CertificatePolicy::class,
     ];
     public function register(): void
     {
         //
+        $this->registerPolicies();
     }
 
     /**
