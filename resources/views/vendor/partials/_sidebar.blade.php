@@ -11,7 +11,7 @@
             </li>
             <li class="sidebar-list">
                 <a class="sidebar-link {{ request()->routeIs('vendor.dashboard') ? 'active' : '' }}"
-                    href="{{ route('vendor.dashboard') }}" wire:navigate @if(request()->routeIs('vendor.dashboard'))
+                    href="{{ route('vendor.dashboard') }}"  @if(request()->routeIs('vendor.dashboard'))
                     aria-current="page" @endif>
                     <svg class="stroke-icon">
                         <use href="...#User"></use>
@@ -31,7 +31,7 @@
 
             <li class="sidebar-list">
                 <a class="sidebar-link {{ request()->routeIs('vendor.product-management') ? 'active' : '' }}"
-                    href="" wire:navigate
+                    href="" 
                     @if(request()->routeIs('vendor.product-management')) aria-current="page" @endif>
                     <svg class="stroke-icon">
                         <use href="...#Box"></use>
@@ -48,12 +48,22 @@
             </li>
             <li class="sidebar-list">
                 <a class="sidebar-link {{ request()->routeIs('vendor.order-management') ? 'active' : '' }}"
-                    href="" wire:navigate
+                    href="" 
                     @if(request()->routeIs('vendor.order-management')) aria-current="page" @endif>
                     <svg class="stroke-icon">
                         <use href="...#Bag"></use>
                     </svg>
                     <h6>Orders</h6>
+                </a>
+            </li>
+
+            <li class="sidebar-list">
+                <a class="sidebar-link {{ request()->routeIs('vendor.products') ? 'active' : '' }}" href="{{route('vendor.products')}}" 
+                    @if(request()->routeIs('vendor.roducts')) aria-current="page" @endif>
+                    <svg class="stroke-icon">
+                        <use href="...#Bag"></use>
+                    </svg>
+                    <h6>Products</h6>
                 </a>
             </li>
 
@@ -65,7 +75,7 @@
             </li>
             <li class="sidebar-list">
                 <a class="sidebar-link {{ request()->routeIs('vendor.auction-management') ? 'active' : '' }}"
-                    href="" wire:navigate
+                    href="" 
                     @if(request()->routeIs('vendor.auction-management')) aria-current="page" @endif>
                     <svg class="stroke-icon">
                         <use href=""></use>

@@ -141,7 +141,7 @@
 </div>
 
 
-
+@push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', () => {
         Livewire.on('showRejectModal', () =>
@@ -158,3 +158,4 @@
         );
     });
 </script>
+@endpush

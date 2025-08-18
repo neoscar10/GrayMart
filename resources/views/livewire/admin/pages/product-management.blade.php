@@ -1,3 +1,8 @@
+@php
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+@endphp
+
 <div>
   <div class="pt-4">
     <h2>Products Management</h2>
@@ -87,311 +92,327 @@
       </thead>
       <tbody>
         @forelse($products as $p)
-        <tr>
-          <td class="no-wrap">
-          @if($p->is_reserved)<i class="fa-solid fa-tag text-info me-1"></i>@endif
-          @if($p->is_signed)<i class="fa-solid fa-certificate me-1 text-warning"></i>@endif
-          {{ $p->name }}
-          </td>
-          <td>
-          <img src="{{ $p->images[0] ?? asset('images/placeholder.png') }}" class="thumb-img rounded" alt="Thumb">
-          </td>
-          <td class="no-wrap">{{ $p->vendor->name }}</td>
-          <td>{{ $p->category?->full_name ?: '—' }}</td>
-          <td class="no-wrap">
-          @if($p->variants_count > 0)
-          @php
-          // Each variant may have its own price; if null, fall back to product's base price
-          $min = $p->variants->min(fn($v) => $v->price ?? $p->price);
-          $max = $p->variants->max(fn($v) => $v->price ?? $p->price);
+          <tr>
+            <td class="no-wrap">
+            @if($p->is_reserved)<i class="fa-solid fa-tag text-info me-1"></i>@endif
+            @if($p->is_signed)<i class="fa-solid fa-certificate me-1 text-warning"></i>@endif
+            {{ $p->name }}
+            </td>
+            <td>
+            @php
+  $thumb = (is_array($p->images) && count($p->images))
+    ? Storage::url($p->images[0])
+    : asset('images/placeholder.png');
           @endphp
+            <img src="{{ $thumb }}" class="thumb-img rounded" alt="Thumb">
+            </td>
+            <td class="no-wrap">{{ $p->vendor->name }}</td>
+            <td>{{ $p->category?->full_name ?: '—' }}</td>
+            <td class="no-wrap">
+            @if($p->variants_count > 0)
+            @php
+    // Each variant may have its own price; if null, fall back to product's base price
+    $min = $p->variants->min(fn($v) => $v->price ?? $p->price);
+    $max = $p->variants->max(fn($v) => $v->price ?? $p->price);
+            @endphp
 
-          @if($min === $max)
-          ${{ number_format((float) $min, 2) }}
+            @if($min === $max)
+            ${{ number_format((float) $min, 2) }}
+            @else
+            ${{ number_format((float) $min, 2) }} – ${{ number_format((float) $max, 2) }}
+            @endif
           @else
-          ${{ number_format((float) $min, 2) }} – ${{ number_format((float) $max, 2) }}
-          {{-- If you’d rather show “Varies” instead of the range, swap this line for:
-          <span class="text-muted">Varies</span>
-          --}}
+          ${{ number_format((float) $p->price, 2) }}
           @endif
-        @else
-        ${{ number_format($p->price, 2) }}
-        @endif
-          </td>
+            </td>
 
-          {{-- <td>@if($p->is_reserved)<i class="fa-solid fa-tag text-info"></i>@endif</td> --}}
-          <td>
-          <span class="badge bg-{{ 
-          $p->status === 'approved' ? 'success'
-      : ($p->status === 'rejected' ? 'danger' : 'warning') 
-          }}">
-          {{ ucfirst($p->status) }}
+            {{-- <td>@if($p->is_reserved)<i class="fa-solid fa-tag text-info"></i>@endif</td> --}}
+            <td>
+            <span class="badge bg-{{ 
+            $p->status === 'approved' ? 'success'
+    : ($p->status === 'rejected' ? 'danger' : 'warning') 
+            }}">
+            {{ ucfirst($p->status) }}
+            </span>
+            </td>
+            <td>
+            @if($p->is_active)
+          <i class="fa-solid fa-check text-success"></i>
+          @else
+          <i class="fa-solid fa-x text-danger"></i>
+          @endif
+            </td>
+            <td class="no-wrap">
+            @php $cert = $p->certificates->last(); @endphp
+            @if(!$cert)
+          —
+          @else
+            <a href="{{ Storage::url($cert->file_path) }}" target="_blank" class="me-1">
+            <i class="fa-solid fa-file-pdf text-primary"></i>
+            </a>
+            <span class="badge bg-{{ 
+            $cert->status === 'pending' ? 'warning text-dark'
+      : ($cert->status === 'approved' ? 'success' : 'danger')
+            }}">
+            {{ ucfirst($cert->status) }}
+            </span>
+          @endif
+            </td>
+      <td class="text-end">
+        <div class="btn-group" role="group" aria-label="Actions" wire:key="row-actions-{{ $p->id }}">
+        {{-- View --}}
+        <button type="button" wire:key="view-{{ $p->id }}" wire:click="openEditModal({{ $p->id }})"
+          wire:loading.attr="disabled" wire:target="openEditModal({{ $p->id }})"
+          class="btn btn-sm btn-outline-primary text-nowrap">
+          <span wire:loading.remove wire:target="openEditModal({{ $p->id }})">
+          <i class="fa-solid fa-eye"></i> View
           </span>
-          </td>
-          <td>
-          @if($p->is_active)
-        <i class="fa-solid fa-check text-success"></i>
-        @else
-        <i class="fa-solid fa-x text-danger"></i>
-        @endif
-          </td>
-          <td class="no-wrap">
-          @php $cert = $p->certificates->last(); @endphp
-          @if(!$cert) —
-        @else
-          <a href="{{ Storage::url($cert->file_path) }}" target="_blank" class="me-1">
-          <i class="fa-solid fa-file-pdf text-primary"></i>
-          </a>
-          <span class="badge bg-{{ 
-          $cert->status === 'pending' ? 'warning text-dark'
-        : ($cert->status === 'approved' ? 'success' : 'danger')
-          }}">
-          {{ ucfirst($cert->status) }}
+          <span wire:loading wire:target="openEditModal({{ $p->id }})">
+          <i class="fa-solid fa-spinner fa-spin"></i> Loading...
           </span>
-        @endif
-          </td>
-          <td class="no-wrap">
-          <button wire:click="openEditModal({{ $p->id }})" class="btn btn-sm btn-outline-primary me-1">
-          <i class="fa-solid fa-eye"></i>
-          </button>
-          @if($p->status === 'pending')
-        <button wire:click="approveProduct({{ $p->id }})" class="btn btn-sm btn-success me-1">
-          <i class="fa-solid fa-thumbs-up"></i>
         </button>
-        <button wire:click="openRejectModal({{ $p->id }})" class="btn btn-sm btn-danger">
-          <i class="fa-solid fa-thumbs-down"></i>
+
+        @if($p->status === 'pending')
+        {{-- Approve --}}
+        <button type="button" wire:key="approve-{{ $p->id }}" wire:click="approveProduct({{ $p->id }})"
+          wire:loading.attr="disabled" wire:target="approveProduct({{ $p->id }})"
+          class="btn btn-sm btn-outline-success text-nowrap">
+          <span wire:loading.remove wire:target="approveProduct({{ $p->id }})">
+          <i class="fa-solid fa-thumbs-up"></i> Approve
+          </span>
+          <span wire:loading wire:target="approveProduct({{ $p->id }})">
+          <i class="fa-solid fa-spinner fa-spin"></i> Approving...
+          </span>
+        </button>
+
+        {{-- Reject --}}
+        <button type="button" wire:key="reject-{{ $p->id }}" wire:click="openRejectModal({{ $p->id }})"
+          wire:loading.attr="disabled" wire:target="openRejectModal({{ $p->id }})"
+          class="btn btn-sm btn-outline-danger text-nowrap">
+          <span wire:loading.remove wire:target="openRejectModal({{ $p->id }})">
+          <i class="fa-solid fa-thumbs-down"></i> Reject
+          </span>
+          <span wire:loading wire:target="openRejectModal({{ $p->id }})">
+          <i class="fa-solid fa-spinner fa-spin"></i> Loading...
+          </span>
         </button>
         @endif
-          </td>
-        </tr>
+        </div>
+      </td>
+
+          </tr>
     @empty
       <tr>
-        <td colspan="10" class="text-center">No products found.</td>
+      <td colspan="10" class="text-center">No products found.</td>
       </tr>
-    @endforelse
+  @endforelse
       </tbody>
     </table>
   </div>
 
   {{ $products->links() }}
 
-{{-- Edit Product Modal --}}
-<div wire:ignore.self class="modal fade" id="productModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content">
-      <form wire:submit.prevent="updateProduct">
-        <div class="modal-header">
-          <h5 class="modal-title"><i class="fa-solid fa-box-open me-1"></i>Edit Product</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
+  {{-- Edit Product Modal --}}
+  <div wire:ignore.self class="modal fade" id="productModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <form wire:submit.prevent="updateProduct">
+          <div class="modal-header">
+            <h5 class="modal-title"><i class="fa-solid fa-box-open me-1"></i>Edit Product</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
 
-        <div class="modal-body">
-          <div class="row gy-3">
+          <div class="modal-body">
+            <div class="row gy-3">
 
-            {{-- Name (read-only) --}}
-            <div class="col-md-6">
-              <label class="form-label">Name</label>
-              <input type="text" class="form-control" value="{{ $name }}" readonly>
-            </div>
+              {{-- Name (read-only) --}}
+              <div class="col-md-6">
+                <label class="form-label">Name</label>
+                <input type="text" class="form-control" value="{{ $name }}" readonly>
+              </div>
 
-            {{-- Slug (read-only) --}}
-            <div class="col-md-6">
-              <label class="form-label">Slug (optional)</label>
-              <input type="text" class="form-control" value="{{ $slug }}" readonly>
-            </div>
+              {{-- Slug (read-only) --}}
+              <div class="col-md-6">
+                <label class="form-label">Slug (optional)</label>
+                <input type="text" class="form-control" value="{{ $slug }}" readonly>
+              </div>
 
-            {{-- Description (read-only) --}}
-            <div class="col-12">
-              <label class="form-label">Description</label>
-              <textarea class="form-control" rows="3" readonly>{{ $description }}</textarea>
-            </div>
+              {{-- Description (read-only) --}}
+              <div class="col-12">
+                <label class="form-label">Description</label>
+                <textarea class="form-control" rows="3" readonly>{{ $description }}</textarea>
+              </div>
 
-            {{-- Price (editable as before) --}}
-            <div class="col-md-4">
-              <label class="form-label">Price</label>
-              <input type="number" step="0.01" class="form-control" wire:model.defer="price">
-              @error('price')<span class="text-danger">{{ $message }}</span>@enderror
-            </div>
+              {{-- Price (editable) --}}
+              <div class="col-md-4">
+                <label class="form-label">Price</label>
+                <input type="number" step="0.01" class="form-control" wire:model.defer="price">
+                @error('price')<span class="text-danger">{{ $message }}</span>@enderror
+              </div>
 
-            {{-- Category (read-only display as disabled select) --}}
-            <div class="col-md-4">
-              <label class="form-label">Category</label>
-              <select class="form-select" disabled>
-                <option value="">— None —</option>
-                @foreach($categories as $c)
-          <option value="{{ $c->id }}" {{ (string) $c->id === (string) $category_id ? 'selected' : '' }}>
+              {{-- Category (read-only as disabled select) --}}
+              <div class="col-md-4">
+                <label class="form-label">Category</label>
+                <select class="form-select" disabled>
+                  <option value="">— None —</option>
+                  @foreach($categories as $c)
+            <option value="{{ $c->id }}" {{ (string) $c->id === (string) $category_id ? 'selected' : '' }}>
             {{ $c->full_name }}
-          </option>
-        @endforeach
-              </select>
-            </div>
-
-            {{-- YouTube URL (read-only + Open button) --}}
-            <div class="col-md-4">
-              <label class="form-label">YouTube URL</label>
-              <div class="input-group">
-                <input type="url" class="form-control" value="{{ $video_url }}" readonly>
-                @if($video_url)
-          <a href="{{ $video_url }}" target="_blank" class="btn btn-outline-primary">
-            <i class="fa-brands fa-youtube me-1"></i>Open
-          </a>
-        @endif
-              </div>
-              @error('video_url')<span class="text-danger">{{ $message }}</span>@enderror
-            </div>
-
-            {{-- Reserved (read-only) --}}
-            <div class="col-md-4">
-              <label class="form-label d-block">Reserved</label>
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" {{ $is_reserved ? 'checked' : '' }} disabled
-                  id="reservedCheck_ro">
-                <label class="form-check-label" for="reservedCheck_ro">
-                  <i class="fa-solid fa-tag me-1"></i> {{ $is_reserved ? 'Yes' : 'No' }}
-                </label>
-              </div>
-            </div>
-
-            {{-- Signed (read-only) --}}
-            <div class="col-md-4">
-              <label class="form-label d-block">Signed</label>
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" {{ $is_signed ? 'checked' : '' }} disabled
-                  id="signedCheck_ro">
-                <label class="form-check-label" for="signedCheck_ro">
-                  <i class="fa-solid fa-certificate me-1"></i> {{ $is_signed ? 'Yes' : 'No' }}
-                </label>
-              </div>
-            </div>
-
-            {{-- Active (editable as before) --}}
-            <div class="col-md-4">
-              <label class="form-label d-block">Active</label>
-              <div class="form-check form-switch">
-                <input class="form-check-input" type="checkbox" id="activeCheck" wire:model.defer="is_active">
-                <label class="form-check-label" for="activeCheck">
-                  <i class="fa-solid fa-toggle-on me-1"></i> Active
-                </label>
-              </div>
-            </div>
-
-            {{-- Certificate Upload (show only if signed) --}}
-            <div id="cert-upload-wrapper" class="col-8 {{ !$is_signed ? 'd-none' : '' }}">
-              <label class="form-label">Upload Certificate (PDF)</label>
-
-              @if($currentCertificate)
-          <div class="mb-2">
-          <a href="{{ \Illuminate\Support\Facades\Storage::url($currentCertificate->file_path) }}" target="_blank"
-            class="btn btn-sm btn-outline-primary">
-            <i class="fa-solid fa-file-pdf me-1"></i>
-            View Certificate ({{ ucfirst($currentCertificate->status) }})
-          </a>
-          </div>
-        @endif
-
-              <input type="file" wire:model="certificateFile" accept="application/pdf" class="form-control w-50">
-              @error('certificateFile')<span class="text-danger">{{ $message }}</span>@enderror
-            </div>
-
-            {{-- Images (unchanged) --}}
-            <div class="col-12">
-              <label class="form-label">Images</label>
-
-              <div class="d-flex flex-wrap gap-2 mb-2">
-                @foreach($images as $i => $url)
-          <div class="position-relative">
-            <img src="{{ $url }}" class="img-thumbnail" style="width:75px;height:75px;object-fit:cover;">
-            <button type="button" class="btn btn-sm btn-danger position-absolute top-0 end-0"
-            wire:click.prevent="removeExistingImage({{ $i }})">&times;</button>
-          </div>
-        @endforeach
-              </div>
-
-              <input type="file" multiple wire:model="newImages" class="form-control w-50">
-              @error('newImages.*')<span class="text-danger">{{ $message }}</span>@enderror
-
-              <div wire:loading wire:target="newImages" class="mt-2">
-                <div class="spinner-border spinner-border-sm text-primary" role="status">
-                  <span class="visually-hidden">Uploading...</span>
-                </div>
-                <small class="text-primary ms-2">Uploading image...</small>
-              </div>
-
-              @if(!empty($newImages))
-            <div class="mt-2">
-            <strong>Preview:</strong>
-            <div class="d-flex flex-wrap gap-2 mt-1">
-              @foreach($newImages as $img)
-          <img src="{{ $img->temporaryUrl() }}" class="img-thumbnail"
-          style="max-height:150px;object-fit:cover;">
+            </option>
           @endforeach
-            </div>
+                </select>
+              </div>
+
+              {{-- YouTube URL (read-only + Open button) --}}
+              <div class="col-md-4">
+                <label class="form-label">YouTube URL</label>
+                <div class="input-group">
+                  <input type="url" class="form-control" value="{{ $video_url }}" readonly>
+                  @if($video_url)
+            <a href="{{ $video_url }}" target="_blank" class="btn btn-outline-primary">
+            <i class="fa-brands fa-youtube me-1"></i>Open
+            </a>
+          @endif
+                </div>
+                @error('video_url')<span class="text-danger">{{ $message }}</span>@enderror
+              </div>
+
+              {{-- Reserved (read-only) --}}
+              <div class="col-md-4">
+                <label class="form-label d-block">Reserved</label>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" {{ $is_reserved ? 'checked' : '' }} disabled
+                    id="reservedCheck_ro">
+                  <label class="form-check-label" for="reservedCheck_ro">
+                    <i class="fa-solid fa-tag me-1"></i> {{ $is_reserved ? 'Yes' : 'No' }}
+                  </label>
+                </div>
+              </div>
+
+              {{-- Signed (read-only) --}}
+              <div class="col-md-4">
+                <label class="form-label d-block">Signed</label>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" {{ $is_signed ? 'checked' : '' }} disabled
+                    id="signedCheck_ro">
+                  <label class="form-check-label" for="signedCheck_ro">
+                    <i class="fa-solid fa-certificate me-1"></i> {{ $is_signed ? 'Yes' : 'No' }}
+                  </label>
+                </div>
+              </div>
+
+              {{-- Active (editable) --}}
+              <div class="col-md-4">
+                <label class="form-label d-block">Active</label>
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="activeCheck" wire:model.defer="is_active">
+                  <label class="form-check-label" for="activeCheck">
+                    <i class="fa-solid fa-toggle-on me-1"></i> Active
+                  </label>
+                </div>
+              </div>
+
+              {{-- Certificate Upload (only if signed) --}}
+              @if($is_signed)
+            <div id="cert-upload-wrapper" class="col-lg-8">
+            <label class="form-label">Upload Certificate (PDF)</label>
+
+            @if($currentCertificate)
+          <div class="mb-2">
+          <a href="{{ Storage::url($currentCertificate->file_path) }}" target="_blank"
+          class="btn btn-sm btn-outline-primary">
+          <i class="fa-solid fa-file-pdf me-1"></i>
+          View Certificate ({{ ucfirst($currentCertificate->status) }})
+          </a>
+          </div>
+        @endif
+
+            <input type="file" wire:model="certificateFile" accept="application/pdf" class="form-control w-50">
+            @error('certificateFile')<span class="text-danger">{{ $message }}</span>@enderror
             </div>
         @endif
-            </div>
 
-            {{-- Variants (Read-Only) --}}
-            <div class="col-12">
-              <h5 class="mb-3">Variants</h5>
+              {{-- Images (READ-ONLY on admin) --}}
+              <div class="col-12">
+                <label class="form-label">Images</label>
+                <div class="d-flex flex-wrap gap-2 mb-2">
+                  @forelse($images as $path)
+                @php
+  $src = Str::startsWith($path, ['http', '/storage'])
+    ? $path
+    : Storage::url($path);
+          @endphp
+                <img src="{{ $src }}" class="img-thumbnail" style="width:75px;height:75px;object-fit:cover;">
+          @empty
+            <span class="text-muted">No images.</span>
+          @endforelse
+                </div>
 
-              @if(empty($variants) || count($variants) === 0)
+                {{-- <div class="alert alert-info py-2 mb-0">
+                  <i class="fa-solid fa-circle-info me-1"></i>
+                  Images are managed by the vendor. Admin uploads & deletions are disabled.
+                </div> --}}
+              </div>
+
+              {{-- Variants (Read-Only summary table) --}}
+              <div class="col-12">
+                <h5 class="mb-3">Variants</h5>
+
+                @if(empty($variants) || count($variants) === 0)
           <p class="text-muted mb-0">This product has no variants.</p>
         @else
             <div class="table-responsive">
-            <table class="table table-sm table-bordered mb-0">
+              <table class="table table-sm table-bordered mb-0">
               <thead class="table-light">
-              <tr>
+                <tr>
                 <th>SKU</th>
                 <th class="text-end">Price</th>
                 <th class="text-end">Stock</th>
                 <th>Attributes</th>
-              </tr>
+                </tr>
               </thead>
               <tbody>
-              @foreach($variants as $variant)
-            <tr>
+                @foreach($variants as $variant)
+              <tr>
               <td class="align-middle">{{ $variant['sku'] ?? '—' }}</td>
-              <td class="align-middle text-end">
-              ${{ number_format((float) ($variant['price'] ?? 0), 2) }}
-              </td>
+              <td class="align-middle text-end">${{ number_format((float) ($variant['price'] ?? 0), 2) }}</td>
               <td class="align-middle text-end">{{ $variant['stock'] ?? 0 }}</td>
               <td class="align-middle">
               @if(!empty($variant['values']))
-            <ul class="list-inline mb-0">
+              <ul class="list-inline mb-0">
               @foreach($variant['values'] as $val)
             <li class="list-inline-item badge bg-secondary">
             {{ $val['attribute_name'] ?? '—' }}: {{ $val['value'] ?? '—' }}
             </li>
             @endforeach
-            </ul>
-          @else
+              </ul>
+            @else
             <span class="text-muted">—</span>
-          @endif
+            @endif
               </td>
-            </tr>
+              </tr>
           @endforeach
               </tbody>
-            </table>
+              </table>
             </div>
         @endif
-            </div>
+              </div>
 
-          </div> {{-- /.row --}}
-        </div> {{-- /.modal-body --}}
+            </div> {{-- /.row --}}
+          </div> {{-- /.modal-body --}}
 
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-            <i class="fa-solid fa-times"></i> Cancel
-          </button>
-          <button type="submit" class="btn btn-primary">
-            <i class="fa-solid fa-save me-1"></i> Save
-          </button>
-        </div>
-      </form>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+              <i class="fa-solid fa-times"></i> Cancel
+            </button>
+            <button type="submit" class="btn btn-primary">
+              <i class="fa-solid fa-save me-1"></i> Save
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
-</div>
-
 
   {{-- Reject Reason Modal --}}
   <div wire:ignore.self class="modal fade" id="rejectModal" tabindex="-1">
@@ -412,39 +433,30 @@
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
               <i class="fa-solid fa-times me-1"></i> Cancel
             </button>
-            <button type="submit" class="btn btn-danger">
-              <i class="fa-solid fa-paper-plane me-1"></i> Send Rejection
+            <button type="submit" class="btn btn-danger" wire:loading.attr="disabled" wire:target="rejectProductConfirmed">
+              <span wire:loading.remove wire:target="rejectProductConfirmed">
+                <i class="fa-solid fa-paper-plane me-1"></i> Send Rejection
+              </span>
+              <span wire:loading wire:target="rejectProductConfirmed">
+                <i class="fa-solid fa-spinner fa-spin me-1"></i> Sending...
+              </span>
             </button>
+
           </div>
         </form>
       </div>
     </div>
   </div>
 
+  @push('scripts')
   {{-- Modal event listeners --}}
-
-    <script>
+  <script>
     document.addEventListener('DOMContentLoaded', () => {
       Livewire.on('showProductModal', () => new bootstrap.Modal('#productModal').show());
-      Livewire.on('hideProductModal', () => bootstrap.Modal.getInstance('#productModal').hide());
+      Livewire.on('hideProductModal', () => bootstrap.Modal.getInstance('#productModal')?.hide());
       Livewire.on('showRejectModal', () => new bootstrap.Modal('#rejectModal').show());
-      Livewire.on('hideRejectModal', () => bootstrap.Modal.getInstance('#rejectModal').hide());
+      Livewire.on('hideRejectModal', () => bootstrap.Modal.getInstance('#rejectModal')?.hide());
     });
-
-    // toggle certificate field
-    document.addEventListener('DOMContentLoaded', () => {
-      const signedCheckbox = document.getElementById('signedCheck');
-      const certWrapper = document.getElementById('cert-upload-wrapper');
-      if (signedCheckbox && certWrapper) {
-      function toggleCert() {
-        certWrapper.classList.toggle('d-none', !signedCheckbox.checked);
-      }
-      signedCheckbox.addEventListener('change', toggleCert);
-      Livewire.on('showProductModal', toggleCert);
-      toggleCert();
-      }
-    });
-    </script>
-  
-
+  </script>
 </div>
+@endpush

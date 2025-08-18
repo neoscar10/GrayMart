@@ -11,7 +11,7 @@
             </li>
             <li class="sidebar-list">
                 <a class="sidebar-link {{ request()->routeIs('admin.dashboard') ? 'active' : '' }}"
-                    href="{{ route('admin.dashboard') }}" wire:navigate @if(request()->routeIs('admin.dashboard'))
+                    href="{{ route('admin.dashboard') }}"  @if(request()->routeIs('admin.dashboard'))
                     aria-current="page" @endif>
                     <svg class="stroke-icon">
                         <use href="...#User"></use>
@@ -27,20 +27,20 @@
                         <h5 class="f-w-700 sidebar-title pt-3">User accounts</h5>
                     </div>
                 </li>
-                <li class="sidebar-list">
+                {{-- <li class="sidebar-list">
                     <a class="sidebar-link {{ request()->routeIs('admin.user-management') ? 'active' : '' }}"
-                        href="{{ route('admin.user-management') }}" wire:navigate
+                        href="{{ route('admin.user-management') }}" 
                         @if(request()->routeIs('admin.user-management')) aria-current="page" @endif>
                         <svg class="stroke-icon">
                             <use href="...#User"></use>
                         </svg>
                         <h6>All User Management</h6>
                     </a>
-                </li>
+                </li> --}}
 
                 <li class="sidebar-list">
                     <a class="sidebar-link {{ request()->routeIs('admin.view-vendors') ? 'active' : '' }}"
-                        href="{{ route('admin.view-vendors') }}" wire:navigate @if(request()->routeIs('admin.view-vendors'))
+                        href="{{ route('admin.view-vendors') }}"  @if(request()->routeIs('admin.view-vendors'))
                         aria-current="page" @endif>
                         <svg class="stroke-icon">
                             <use href="...#User"></use>
@@ -59,7 +59,7 @@
 
             <li class="sidebar-list">
                 <a class="sidebar-link {{ request()->routeIs('admin.product-management') ? 'active' : '' }}"
-                    href="{{ route('admin.product-management') }}" wire:navigate
+                    href="{{ route('admin.product-management') }}" 
                     @if(request()->routeIs('admin.product-management')) aria-current="page" @endif>
                     <svg class="stroke-icon">
                         <use href="...#Box"></use>
@@ -70,7 +70,7 @@
 
             <li class="sidebar-list">
                 <a class="sidebar-link {{ request()->routeIs('admin.category-management') ? 'active' : '' }}"
-                    href="{{ route('admin.category-management') }}" wire:navigate
+                    href="{{ route('admin.category-management') }}" 
                     @if(request()->routeIs('admin.category-management')) aria-current="page" @endif>
                     <svg class="stroke-icon">
                         <use href="...#Category"></use>
@@ -81,7 +81,7 @@
 
             <li class="sidebar-list">
                 <a class="sidebar-link {{ request()->routeIs('admin.manage-variants') ? 'active' : '' }}"
-                    href="{{ route('admin.manage-variants') }}" wire:navigate
+                    href="{{ route('admin.manage-variants') }}" 
                     @if(request()->routeIs('admin.manage-variants')) aria-current="page" @endif>
                     <svg class="stroke-icon">
                         <use href=""></use>
@@ -98,7 +98,7 @@
             </li>
             <li class="sidebar-list">
                 <a class="sidebar-link {{ request()->routeIs('admin.order-management') ? 'active' : '' }}"
-                    href="{{ route('admin.order-management') }}" wire:navigate
+                    href="{{ route('admin.order-management') }}" 
                     @if(request()->routeIs('admin.order-management')) aria-current="page" @endif>
                     <svg class="stroke-icon">
                         <use href="...#Bag"></use>
@@ -115,7 +115,7 @@
             </li>
             <li class="sidebar-list">
                 <a class="sidebar-link {{ request()->routeIs('admin.auction-management') ? 'active' : '' }}"
-                    href="{{ route('admin.auction-management') }}" wire:navigate
+                    href="{{ route('admin.auction-management') }}" 
                     @if(request()->routeIs('admin.auction-management')) aria-current="page" @endif>
                     <svg class="stroke-icon">
                         <use href=""></use>
@@ -132,7 +132,7 @@
             </li>
             <li class="sidebar-list">
                 <a class="sidebar-link {{ request()->routeIs('admin.reviews') ? 'active' : '' }}"
-                    href="{{ route('admin.reviews') }}" wire:navigate @if(request()->routeIs('admin.reviews'))
+                    href="{{ route('admin.reviews') }}"  @if(request()->routeIs('admin.reviews'))
                     aria-current="page" @endif>
                     <svg class="stroke-icon">
                         <use href=""></use>

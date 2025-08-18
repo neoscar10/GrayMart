@@ -55,35 +55,42 @@ class AnalyticsDashboard extends Component
         ];
     }
 
-    protected function prepareTopProducts(): void
-    {
-        $this->topProducts = DB::table('order_items')
-            ->join('products','order_items.product_id','=','products.id')
-            ->select(
-                'products.name',
-                DB::raw('SUM(order_items.quantity) as qty_sold'),
-                DB::raw('SUM(order_items.quantity * order_items.unit_price) as revenue')
-            )
-            ->groupBy('products.name')
-            ->orderByDesc('revenue')
-            ->limit(5)
-            ->get();
-    }
+   protected function prepareTopProducts(): void
+{
+    $this->topProducts = DB::table('order_items')
+        ->join('orders', 'order_items.order_id', '=', 'orders.id')
+        ->join('products', 'order_items.product_id', '=', 'products.id')
+        ->where('orders.status', 'delivered')
+        ->select(
+            'products.name',
+            DB::raw('SUM(order_items.quantity) as qty_sold'),
+            DB::raw('SUM(order_items.quantity * order_items.unit_price) as revenue')
+            // Or SUM(order_items.total_price) if you store it
+        )
+        ->groupBy('products.name')
+        ->orderByDesc('revenue')
+        ->limit(5)
+        ->get();
+}
+
 
     protected function prepareTopVendors(): void
-    {
-        $this->topVendors = DB::table('orders')
-            ->join('users','orders.vendor_id','=','users.id')
-            ->where('orders.status','delivered')
-            ->select(
-                'users.name',
-                DB::raw('SUM(orders.total_amount) as revenue')
-            )
-            ->groupBy('users.name')
-            ->orderByDesc('revenue')
-            ->limit(5)
-            ->get();
-    }
+{
+    $this->topVendors = DB::table('order_items')
+        ->join('orders', 'order_items.order_id', '=', 'orders.id')
+        ->join('users', 'order_items.vendor_id', '=', 'users.id')
+        ->where('orders.status', 'delivered')
+        ->select(
+            'users.name',
+            DB::raw('SUM(order_items.quantity * order_items.unit_price) as revenue')
+            // If you have order_items.total_price, prefer: SUM(order_items.total_price)
+        )
+        ->groupBy('users.name')
+        ->orderByDesc('revenue')
+        ->limit(5)
+        ->get();
+}
+
 
     protected function prepareTopCustomers(): void
     {

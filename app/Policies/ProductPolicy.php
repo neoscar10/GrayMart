@@ -27,7 +27,7 @@ class ProductPolicy
         return $user->role === 'admin' || $product->vendor_id === $user->id;
     }
 
-    public function delete(User $user, Product $product): bool
+        public function delete(User $user, Product $product): bool
     {
         return $user->role === 'admin' || $product->vendor_id === $user->id;
     }

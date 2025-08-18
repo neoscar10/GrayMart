@@ -2,9 +2,9 @@
 <div class="pt-4">
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h4>All Notifications</h4>
-        <button class="btn btn-outline-secondary" wire:click="markAllRead">
+        {{-- <button class="btn btn-outline-secondary" wire:click="markAllRead">
             Mark All Read
-        </button>
+        </button> --}}
     </div>
 
     <ul class="list-group">

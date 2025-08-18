@@ -17,10 +17,23 @@ use App\Livewire\NotificationsPage;
 use App\Livewire\Vendor\Pages\AnalyticsDashboard as PagesAnalyticsDashboard;
 use Illuminate\Support\Facades\Mail;
 
+use App\Livewire\Vendor\Pages\StoreProfile as VendorStoreProfile;
+use App\Livewire\Front\Store\Show as PublicStoreShow;
+use App\Livewire\Vendor\Pages\Auctions;
+use App\Livewire\Vendor\Pages\ProductManagement as PagesProductManagement;
+use App\Livewire\Front\Pages\HomePage;
+use App\Livewire\Front\Pages\ShopPage;
+use App\Livewire\Front\Pages\ProductDetailPage;
+use App\Livewire\Front\Pages\CartPage;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+Route::get('/cart', CartPage::class)->name('home.cart');
+
+
+Route::get('/product/{slug}', ProductDetailPage::class)->name('store.product');
+
+Route::get('/shop', ShopPage::class)->name('store.shop');
+
+Route::get('/', HomePage::class)->name('store.home');
 
 Route::middleware([
     // 'auth:sanctum',
@@ -57,5 +70,13 @@ Route::middleware(['auth','vendor',])
     ->name('vendor.')
     ->group(function () {
         Route::get('dashboard', PagesAnalyticsDashboard::class)->name('dashboard');
-        
+        Route::get('/store-profile', VendorStoreProfile::class)->name('store.profile');
+        Route::get('/products', PagesProductManagement::class)->name('products');
+         Route::get('/auctions', Auctions::class)->name('auctions.index');
+        Route::get('/notifications', NotificationsPage::class)
+        ->name('notifications.index');
     });
+
+
+    
+Route::get('/store/{slug}', PublicStoreShow::class)->name('store.show');

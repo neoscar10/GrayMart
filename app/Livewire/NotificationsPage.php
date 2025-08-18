@@ -11,6 +11,13 @@ class NotificationsPage extends Component
 {
     use WithPagination;
 
+    public function mount()
+    {
+        
+        $this->markAllRead();
+    }
+
+
     public function markAllRead()
     {
         Auth::user()->unreadNotifications->markAsRead();
@@ -26,7 +33,13 @@ class NotificationsPage extends Component
                              ->notifications()
                              ->paginate(15);
 
-        return view('livewire.notifications-page', compact('notifications'))
-               ->layout('components.layouts.admin');
+        if (Auth::user()->role == 'admin'){
+            return view('livewire.notifications-page', compact('notifications'))
+                ->layout('components.layouts.admin');
+                }
+        else if(Auth::user()->role == 'vendor'){
+            return view('livewire.notifications-page', compact('notifications'))
+                ->layout('components.layouts.vendor');
+        }
     }
 }

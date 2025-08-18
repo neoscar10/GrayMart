@@ -20,7 +20,7 @@ class OrderManagement extends Component
     public $dateTo         = '';
 
     public $selectedOrder;
-    public $adminNote; 
+    public $adminNote;
 
     protected $queryString = [
         'search','vendorFilter','customerFilter',
@@ -39,16 +39,19 @@ class OrderManagement extends Component
 
     public function exportCsv()
     {
-        $orders = Order::with(['customer','vendor'])
-            ->when($this->search, fn($q) =>
+        $orders = Order::with(['customer','items.vendor']) // <-- vendor via items
+            ->when($this->search, function ($q) {
                 $q->where('id','like',"%{$this->search}%")
-                  ->orWhereHas('customer', fn($q)=> $q->where('name','like',"%{$this->search}%"))
+                  ->orWhereHas('customer', fn($qq)=> $qq->where('name','like',"%{$this->search}%"))
+                  ->orWhereHas('items.vendor', fn($qq)=> $qq->where('name','like',"%{$this->search}%"));
+            })
+            ->when($this->vendorFilter, fn($q)=>
+                $q->whereHas('items', fn($qq)=> $qq->where('vendor_id', $this->vendorFilter)) // <-- no orders.vendor_id
             )
-            ->when($this->vendorFilter,   fn($q)=> $q->where('vendor_id',   $this->vendorFilter))
-            ->when($this->customerFilter, fn($q)=> $q->where('user_id',     $this->customerFilter))
-            ->when($this->statusFilter,   fn($q)=> $q->where('status',      $this->statusFilter))
-            ->when($this->dateFrom,       fn($q)=> $q->whereDate('created_at','>=',Carbon::parse($this->dateFrom)))
-            ->when($this->dateTo,         fn($q)=> $q->whereDate('created_at','<=',Carbon::parse($this->dateTo)))
+            ->when($this->customerFilter, fn($q)=> $q->where('user_id', $this->customerFilter))
+            ->when($this->statusFilter, fn($q)=> $q->where('status', $this->statusFilter))
+            ->when($this->dateFrom, fn($q)=> $q->whereDate('created_at','>=',Carbon::parse($this->dateFrom)))
+            ->when($this->dateTo, fn($q)=> $q->whereDate('created_at','<=',Carbon::parse($this->dateTo)))
             ->orderByDesc('created_at')
             ->get();
 
@@ -60,13 +63,16 @@ class OrderManagement extends Component
 
         return response()->stream(function() use ($orders) {
             $handle = fopen('php://output','w');
-            fputcsv($handle, ['Order ID','Customer','Email','Vendor','Total','Status','Placed At']);
+            fputcsv($handle, ['Order ID','Customer','Email','Vendor(s)','Total','Status','Placed At']);
             foreach ($orders as $o) {
+                // if each order truly has one vendor, this will still return one name
+                $vendors = $o->items->pluck('vendor.name')->filter()->unique()->implode(', ');
+
                 fputcsv($handle, [
                     $o->id,
-                    $o->customer->name,
-                    $o->customer->email,
-                    $o->vendor->name,
+                    optional($o->customer)->name,
+                    optional($o->customer)->email,
+                    $vendors,
                     number_format($o->total_amount,2),
                     ucfirst($o->status),
                     $o->created_at->format('Y-m-d H:i'),
@@ -77,36 +83,33 @@ class OrderManagement extends Component
     }
 
     public function openOrderModal(int $orderId)
-    {
-        $this->selectedOrder = Order::with(['customer','vendor','items.product'])
-            ->findOrFail($orderId);
-    
-        // seed our textarea
-        $this->adminNote = $this->selectedOrder->admin_note;
-    
-        $this->dispatch('showOrderModal');
-    }
-    
+{
+    $this->selectedOrder = Order::with([
+            'customer',
+            'items.product',
+            'items.vendor',
+            'vendors',              
+        ])->findOrFail($orderId);
+
+    $this->adminNote = $this->selectedOrder->admin_note;
+    $this->dispatch('showOrderModal');
+}
+
 
     public function saveAdminNote()
     {
         $this->validate([
             'adminNote' => 'nullable|string|max:1000',
         ]);
-    
-        // persist
+
         $this->selectedOrder->update([
             'admin_note' => $this->adminNote,
         ]);
-    
-        // reload so future reads reflect the DB
+
         $this->selectedOrder->refresh();
         $this->dispatch('hideOrderModal');
-    
         session()->flash('success','Admin note saved.');
     }
-    
-
 
     public function closeOrderModal()
     {
@@ -116,22 +119,25 @@ class OrderManagement extends Component
 
     public function render()
     {
-        $query = Order::with(['customer','vendor'])
-            ->when($this->search, fn($q) =>
+        $query = Order::with(['customer','items.vendor']) // <-- vendor via items
+            ->when($this->search, function ($q) {
                 $q->where('id','like',"%{$this->search}%")
-                  ->orWhereHas('customer', fn($q)=> $q->where('name','like',"%{$this->search}%"))
+                  ->orWhereHas('customer', fn($qq)=> $qq->where('name','like',"%{$this->search}%"))
+                  ->orWhereHas('items.vendor', fn($qq)=> $qq->where('name','like',"%{$this->search}%")); // search vendor name too
+            })
+            ->when($this->vendorFilter, fn($q)=>
+                $q->whereHas('items', fn($qq)=> $qq->where('vendor_id', $this->vendorFilter)) // <-- filter by item.vendor_id
             )
-            ->when($this->vendorFilter,   fn($q)=> $q->where('vendor_id',   $this->vendorFilter))
-            ->when($this->customerFilter, fn($q)=> $q->where('user_id',     $this->customerFilter))
-            ->when($this->statusFilter,   fn($q)=> $q->where('status',      $this->statusFilter))
-            ->when($this->dateFrom,       fn($q)=> $q->whereDate('created_at','>=',Carbon::parse($this->dateFrom)))
-            ->when($this->dateTo,         fn($q)=> $q->whereDate('created_at','<=',Carbon::parse($this->dateTo)))
+            ->when($this->customerFilter, fn($q)=> $q->where('user_id', $this->customerFilter))
+            ->when($this->statusFilter, fn($q)=> $q->where('status', $this->statusFilter))
+            ->when($this->dateFrom, fn($q)=> $q->whereDate('created_at','>=',Carbon::parse($this->dateFrom)))
+            ->when($this->dateTo, fn($q)=> $q->whereDate('created_at','<=',Carbon::parse($this->dateTo)))
             ->orderByDesc('created_at');
 
         return view('livewire.admin.pages.order-management', [
-            'orders'   => $query->paginate(10),
-            'vendors'  => User::where('role','vendor')->get(),
-            'customers'=> User::where('role','customer')->get(),
+            'orders'    => $query->paginate(10),
+            'vendors'   => User::where('role','vendor')->get(),
+            'customers' => User::where('role','customer')->get(),
         ])->layout('components.layouts.admin');
     }
 }

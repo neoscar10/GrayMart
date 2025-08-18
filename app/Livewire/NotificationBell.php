@@ -8,63 +8,120 @@ use Illuminate\Support\Facades\Auth;
 
 class NotificationBell extends Component
 {
-    public $notifications = [];
-    public $unreadCount   = 0;
+    public array $notifications = []; // each: ['id','title','body','url','read_at','created_at']
+    public int $unreadCount = 0;
+    public int $limit = 7;
 
-    /**
-     * Combine the “mark all read” event with your Pusher listener.
-     */
     public function getListeners(): array
     {
         $userId = Auth::id();
 
         return [
-            // Custom Livewire event when page marks all read
-            'notificationsRead' => 'handleNotificationsRead',
+            // When some other component marks as read, refresh this bell
+            'notificationsRead' => 'refreshBell',
 
-            // Real‑time Pusher broadcast listener
-            "echo:App.Models.User.{$userId},Illuminate\\Notifications\\Events\\BroadcastNotificationCreated"
+            // Real-time broadcast from Laravel notifications (private channel)
+            "echo-private:App.Models.User.{$userId},Illuminate\\Notifications\\Events\\BroadcastNotificationCreated"
                 => 'notifyReceived',
         ];
     }
 
-    public function mount()
+    public function mount(): void
+    {
+        $this->refreshBell();
+    }
+
+    public function refreshBell(): void
     {
         $user = Auth::user();
-
-        $this->notifications = $user
-            ->unreadNotifications
-            ->take(5)
-            ->map(fn($n) => $n->data)
-            ->toArray();
-
-        $this->unreadCount = count($this->notifications);
-    }
-
-    public function notifyReceived($event)
-    {
-        $this->unreadCount++;
-        array_unshift($this->notifications, $event['data']);
-        $this->notifications = array_slice($this->notifications, 0, 5);
-    }
-
-    public function handleNotificationsRead()
-    {
-        $this->unreadCount   = 0;
-        $this->notifications = [];
-    }
-
-    public function markAsRead($index)
-    {
-        $user = Auth::user();
-        $notification = $user->unreadNotifications->get($index);
-
-        if ($notification) {
-            $notification->markAsRead();
-            $this->unreadCount--;
-            unset($this->notifications[$index]);
-            $this->notifications = array_values($this->notifications);
+        if (!$user) {
+            $this->notifications = [];
+            $this->unreadCount = 0;
+            return;
         }
+
+        // Total unread for the badge
+        $this->unreadCount = (int) $user->unreadNotifications()->count();
+
+        // Latest notifications (read + unread) for the dropdown list
+        $this->notifications = $user->notifications()
+            ->latest()
+            ->limit($this->limit)
+            ->get()
+            ->map(function ($n) {
+                $data = (array) $n->data;
+                return [
+                    'id'         => (string) $n->id,
+                    'title'      => $data['title'] ?? 'Notification',
+                    'body'       => $data['body']  ?? '',
+                    'url'        => $data['url']   ?? null,
+                    'read_at'    => $n->read_at,              // Carbon|null
+                    'created_at' => $n->created_at,           // Carbon
+                ];
+            })->toArray();
+    }
+
+    public function notifyReceived(array $event): void
+    {
+        // Increase unread badge
+        $this->unreadCount++;
+
+        // Build a new item from the broadcast payload
+        $data = $event['data'] ?? [];
+        $this->notifications = array_merge(
+            [[
+                'id'         => (string) ($event['id'] ?? ''),
+                'title'      => $data['title'] ?? 'Notification',
+                'body'       => $data['body']  ?? '',
+                'url'        => $data['url']   ?? null,
+                'read_at'    => null,
+                'created_at' => now(),
+            ]],
+            $this->notifications
+        );
+
+        // Trim to limit
+        $this->notifications = array_slice($this->notifications, 0, $this->limit);
+    }
+
+    public function markAsRead(string $notificationId): void
+    {
+        $user = Auth::user();
+        if (!$user) return;
+
+        $notif = $user->notifications()->where('id', $notificationId)->first();
+        if ($notif && !$notif->read_at) {
+            $notif->markAsRead();
+            // Update badge
+            $this->unreadCount = max(0, $this->unreadCount - 1);
+        }
+
+        // Update the local list (flip read_at on the matched item)
+        foreach ($this->notifications as &$n) {
+            if ($n['id'] === $notificationId) {
+                $n['read_at'] = now();
+                break;
+            }
+        }
+        unset($n);
+    }
+
+    public function markAllRead(): void
+    {
+        $user = Auth::user();
+        if (!$user) return;
+
+        $user->unreadNotifications->markAsRead();
+        $this->unreadCount = 0;
+
+        // Flip local list to read
+        foreach ($this->notifications as &$n) {
+            $n['read_at'] = $n['read_at'] ?: now();
+        }
+        unset($n);
+
+        // Let other components refresh if needed
+        $this->dispatch('notificationsRead');
     }
 
     public function render()

@@ -24,6 +24,7 @@ class AuthServiceProvider extends ServiceProvider
         Product::class     => ProductPolicy::class,
         Auction::class     => AuctionPolicy::class,
         Certificate::class => CertificatePolicy::class,
+        \App\Models\VendorProfile::class => \App\Policies\VendorProfilePolicy::class,
     ];
     public function register(): void
     {

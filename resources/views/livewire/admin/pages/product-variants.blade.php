@@ -170,7 +170,7 @@
     </div>
   </div>
 
-  
+  @push('scripts')
     <script>
     window.addEventListener('show-modal', e => {
       new bootstrap.Modal(document.getElementById(e.detail)).show();
@@ -181,5 +181,6 @@
       ).hide();
     });
     </script>
+  @endpush
   
 </div>

@@ -1,4 +1,7 @@
 <div>
+  <div class="pt-4">
+    <h2>Manage Auctions</h2>
+  </div>
     {{-- Tabs --}}
     <ul class="nav nav-tabs pt-4">
       @foreach(['certificates' => 'Certificates', 'upcoming' => 'Upcoming', 'live' => 'Live', 'closed' => 'Closed'] as $key => $label)
@@ -51,7 +54,7 @@
           <td>
           <span class="badge bg-{{ 
           $item->status === 'approved' ? 'success'
-        : ($item->status === 'rejected' ? 'danger' : 'warning') 
+      : ($item->status === 'rejected' ? 'danger' : 'warning') 
           }}">
           {{ ucfirst($item->status) }}
           </span>
@@ -92,7 +95,7 @@
           <td>
           <span class="badge bg-{{ 
           $item->status === 'live' ? 'info'
-        : ($item->status === 'scheduled' ? 'secondary' : 'dark')
+      : ($item->status === 'scheduled' ? 'secondary' : 'dark')
           }}">
           {{ ucfirst($item->status) }}
           </span>
@@ -229,6 +232,7 @@
     </div>
   </div>
   
+  
   {{-- Modal event listeners --}}
   <script>
     document.addEventListener('DOMContentLoaded', () => {
@@ -239,4 +243,5 @@
       Livewire.on('showBidsModal',         () => new bootstrap.Modal('#bidsModal').show());
     });
   </script>
+  
   

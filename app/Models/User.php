@@ -89,4 +89,10 @@ class User extends Authenticatable
     return $this->hasMany(Review::class);
     }
 
+    public function vendorProfile()
+    {
+        return $this->hasOne(VendorProfile::class);
+    }
+
+
 }

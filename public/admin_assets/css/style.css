@@ -47664,3 +47664,30 @@ label {
 .sidebar-link:hover {
   background: #f8f9ff;
 }
+
+
+
+
+
+.expand-btn {
+  font-size: 1.9rem;
+  /* make arrow bigger */
+  padding: 2rem;
+  /* add a little clickable area */
+  line-height: 1;
+  /* keep it tight */
+}
+
+
+.expand-btn {
+  font-size: 1.3rem;
+  padding: 0.25rem;
+  line-height: 1;
+  color: #212529 !important;
+  /* Bootstrap's default text-dark */
+}
+
+.expand-btn:hover {
+  color: #0d6efd !important;
+  /* Bootstrap primary blue on hover */
+}

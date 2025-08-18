@@ -12,6 +12,7 @@ class OrderItem extends Model
         'quantity',
         'unit_price',
         'total_price',
+        'vendor_id',
     ];
 
     public function order()
@@ -22,5 +23,10 @@ class OrderItem extends Model
     public function product()
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function vendor()
+    {
+        return $this->belongsTo(User::class, 'vendor_id');
     }
 }

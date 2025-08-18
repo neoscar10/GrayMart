@@ -14,7 +14,7 @@ class CertificatePolicy
 
     public function view(User $user, Certificate $certificate): bool
     {
-        return $user->role === 'admin' || optional($certificate->product)->user_id === $user->id;
+        return $user->role === 'admin' || optional($certificate->product)->vendor_id === $user->id;
     }
 
     public function create(User $user): bool
@@ -22,13 +22,14 @@ class CertificatePolicy
         return in_array($user->role, ['vendor','admin']);
     }
 
+   
     public function update(User $user, Certificate $certificate): bool
     {
-        return $user->role === 'admin' || optional($certificate->product)->user_id === $user->id;
+        return $user->role === 'admin' || optional($certificate->product)->vendor_id === $user->id;
     }
-
     public function delete(User $user, Certificate $certificate): bool
     {
-        return $user->role === 'admin' || optional($certificate->product)->user_id === $user->id;
+        return $user->role === 'admin' || optional($certificate->product)->vendor_id === $user->id;
     }
+
 }

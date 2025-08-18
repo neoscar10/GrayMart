@@ -61,7 +61,7 @@
           <th>#</th>
           <th>Customer</th>
           <th>Email</th>
-          <th>Vendor</th>
+          <th>Vendor(s)</th>
           <th>Total</th>
           <th>Status</th>
           <th>Placed At</th>
@@ -70,32 +70,33 @@
       </thead>
       <tbody>
         @forelse($orders as $order)
-          <tr>
+            <tr>
             <td class="no-wrap">{{ $order->id }}</td>
             <td>{{ $order->customer->name }}</td>
             <td>{{ $order->customer->email }}</td>
-            <td>{{ $order->vendor->name }}</td>
-            <td>${{ number_format($order->total_amount,2) }}</td>
+            <td>{{ $order->items->pluck('vendor.name')->unique()->filter()->implode(', ') }}
+      </td>
+            <td>${{ number_format($order->total_amount, 2) }}</td>
             <td>
               <span class="badge bg-{{ 
-                $order->status==='pending'      ? 'warning text-dark' :
-                ($order->status==='processing' ? 'primary' :
-                ($order->status==='shipped'    ? 'info' :
-                ($order->status==='delivered'  ? 'success' : 'danger')))
+              $order->status === 'pending' ? 'warning text-dark' :
+    ($order->status === 'processing' ? 'primary' :
+      ($order->status === 'shipped' ? 'info' :
+        ($order->status === 'delivered' ? 'success' : 'danger')))
               }}">
-                {{ ucfirst($order->status) }}
+              {{ ucfirst($order->status) }}
               </span>
             </td>
             <td class="no-wrap">{{ $order->created_at->format('Y-m-d H:i') }}</td>
             <td class="no-wrap">
               <button wire:click="openOrderModal({{ $order->id }})"
-                      class="btn btn-sm btn-outline-primary"
-                      title="View details">
-                <i class="fa-solid fa-eye"></i>
+                  class="btn btn-sm btn-outline-primary"
+                  title="View details">
+              <i class="fa-solid fa-eye"></i>
               </button>
             </td>
-          </tr>
-        @empty
+            </tr>
+    @empty
           <tr><td colspan="8" class="text-center">No orders found.</td></tr>
         @endforelse
       </tbody>
@@ -108,62 +109,71 @@
     <div class="modal-dialog modal-lg modal-dialog-centered">
       <div class="modal-content">
         @if($selectedOrder)
-          <div class="modal-header">
-            <h5 class="modal-title">Order #{{ $selectedOrder->id }} Details</h5>
-            <button type="button"
-                    class="btn-close"
-                    data-bs-dismiss="modal"
-                    wire:click="closeOrderModal"></button>
-          </div>
-          <div class="modal-body">
-            <p><strong>Customer:</strong> {{ $selectedOrder->customer->name }} - {{ $selectedOrder->customer->email }}</p>
-            <p><strong>Vendor:</strong> {{ $selectedOrder->vendor->name }} - {{ $selectedOrder->vendor->email }}</p>
-            <p><strong>Placed At:</strong> {{ $selectedOrder->created_at->format('Y-m-d H:i') }}</p>
-            <hr>
-            <h6>Items</h6>
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Product</th>
-                  <th>Qty</th>
-                  <th>Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                @foreach($selectedOrder->items as $item)
-                  <tr>
-                    <td>{{ $item->product->name }}</td>
-                    <td>{{ $item->quantity }}</td>
-                    <td>${{ number_format($item->unit_price,2) }}</td>
-                  </tr>
-                @endforeach
-              </tbody>
-            </table>
-            <p class="text-end"><strong>Total:</strong> ${{ number_format($selectedOrder->total_amount,2) }}</p>
+        <div class="modal-header">
+        <h5 class="modal-title">Order #{{ $selectedOrder->id }} Details</h5>
+        <button type="button"
+            class="btn-close"
+            data-bs-dismiss="modal"
+            wire:click="closeOrderModal"></button>
+        </div>
+        <div class="modal-body">
+        <p><strong>Customer:</strong> {{ $selectedOrder->customer->name }} - {{ $selectedOrder->customer->email }}</p>
+        <p><strong>Vendor(s):</strong>
+          @if($selectedOrder->vendors && $selectedOrder->vendors->count())
+        @foreach($selectedOrder->vendors as $v)
+        {{ $v->name }} - {{ $v->email }}@if(!$loop->last), @endif
+      @endforeach
+      @else
+        —
+      @endif
+        </p>
 
-            {{-- Admin Note --}}
-            <hr>
-            {{-- inside your Order‑Detail modal's body --}}
-            <div class="mb-3">
-            <label>Admin Note</label>
-            <textarea
-                class="form-control"
-                rows="3"
-                wire:model.defer="adminNote"
-            ></textarea>
-            @error('adminNote') <span class="text-danger">{{ $message }}</span> @enderror
-            </div>
-            <button wire:click="saveAdminNote" class="btn btn-primary">
-            Save Note
-            </button>
+        <p><strong>Placed At:</strong> {{ $selectedOrder->created_at->format('Y-m-d H:i') }}</p>
+        <hr>
+        <h6>Items</h6>
+        <table class="table">
+          <thead>
+          <tr>
+            <th>Product</th>
+            <th>Qty</th>
+            <th>Price</th>
+          </tr>
+          </thead>
+          <tbody>
+          @foreach($selectedOrder->items as $item)
+            <tr>
+            <td>{{ $item->product->name }}</td>
+            <td>{{ $item->quantity }}</td>
+            <td>${{ number_format($item->unit_price, 2) }}</td>
+            </tr>
+          @endforeach
+          </tbody>
+        </table>
+        <p class="text-end"><strong>Total:</strong> ${{ number_format($selectedOrder->total_amount, 2) }}</p>
 
-            <button wire:click="closeOrderModal"
-                    class="btn btn-secondary"
-                    data-bs-dismiss="modal">
-              Close
-            </button>
-          </div>
-        @endif
+        {{-- Admin Note --}}
+        <hr>
+        {{-- inside your Order‑Detail modal's body --}}
+        <div class="mb-3">
+        <label>Admin Note</label>
+        <textarea
+          class="form-control"
+          rows="3"
+          wire:model.defer="adminNote"
+        ></textarea>
+        @error('adminNote') <span class="text-danger">{{ $message }}</span> @enderror
+        </div>
+        <button wire:click="saveAdminNote" class="btn btn-primary">
+        Save Note
+        </button>
+
+        <button wire:click="closeOrderModal"
+            class="btn btn-secondary"
+            data-bs-dismiss="modal">
+          Close
+        </button>
+        </div>
+    @endif
       </div>
     </div>
   </div>
@@ -171,7 +181,7 @@
 
 
 
-
+@push('scripts')
 <script>
   document.addEventListener('DOMContentLoaded', () => {
     Livewire.on('showOrderModal', () => {
@@ -182,4 +192,5 @@
     });
   });
 </script>
+@endpush
 

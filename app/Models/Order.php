@@ -8,7 +8,7 @@ class Order extends Model
 {
     protected $fillable = [
         'user_id',
-        'vendor_id',
+        // 'vendor_id',
         'total_amount',
         'status',
         'shipping_address',
@@ -24,13 +24,18 @@ class Order extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
-    public function vendor()
-    {
-        return $this->belongsTo(User::class, 'vendor_id');
-    }
+    // public function vendor()
+    // {
+    //     return $this->belongsTo(User::class, 'vendor_id');
+    // }
 
     public function items()
     {
         return $this->hasMany(OrderItem::class);
+    }
+
+    public function vendors()
+    {
+        return $this->belongsToMany(User::class, 'order_items', 'order_id', 'vendor_id')->distinct();
     }
 }

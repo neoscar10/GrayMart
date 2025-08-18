@@ -146,7 +146,6 @@ namespace App\Models{
  *
  * @property int $id
  * @property int $user_id
- * @property int $vendor_id
  * @property string $total_amount
  * @property string $status
  * @property string|null $admin_note Internal note for disputes, set by admin
@@ -156,7 +155,8 @@ namespace App\Models{
  * @property-read \App\Models\User $customer
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\OrderItem> $items
  * @property-read int|null $items_count
- * @property-read \App\Models\User $vendor
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\User> $vendors
+ * @property-read int|null $vendors_count
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Order newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Order newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Order query()
@@ -168,7 +168,6 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereTotalAmount($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereUserId($value)
- * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereVendorId($value)
  */
 	class Order extends \Eloquent {}
 }
@@ -180,6 +179,7 @@ namespace App\Models{
  * @property int $id
  * @property int $order_id
  * @property int $product_id
+ * @property int|null $vendor_id
  * @property int $quantity
  * @property string $unit_price
  * @property string $total_price
@@ -187,6 +187,7 @@ namespace App\Models{
  * @property \Illuminate\Support\Carbon|null $updated_at
  * @property-read \App\Models\Order $order
  * @property-read \App\Models\Product $product
+ * @property-read \App\Models\User|null $vendor
  * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem newQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem query()
@@ -198,6 +199,7 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereTotalPrice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereUnitPrice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereVendorId($value)
  */
 	class OrderItem extends \Eloquent {}
 }
@@ -386,6 +388,7 @@ namespace App\Models{
  * @property-read int|null $reviews_count
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\Auction> $vendorAuctions
  * @property-read int|null $vendor_auctions_count
+ * @property-read \App\Models\VendorProfile|null $vendorProfile
  * @method static \Database\Factories\UserFactory factory($count = null, $state = [])
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User newModelQuery()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|User newQuery()
@@ -454,5 +457,67 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|VariantAttributeValue whereValue($value)
  */
 	class VariantAttributeValue extends \Eloquent {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property int $id
+ * @property int $user_id
+ * @property string $store_name
+ * @property string $slug
+ * @property string|null $logo_path
+ * @property string|null $banner_path
+ * @property string|null $email
+ * @property string|null $phone
+ * @property string|null $whatsapp
+ * @property string|null $website
+ * @property array<array-key, mixed>|null $socials
+ * @property string|null $description
+ * @property string|null $address_line
+ * @property string|null $city
+ * @property string|null $state
+ * @property string|null $country
+ * @property string|null $postal_code
+ * @property string|null $place_id
+ * @property float|null $lat
+ * @property float|null $lng
+ * @property array<array-key, mixed>|null $opening_hours
+ * @property bool $published
+ * @property \Illuminate\Support\Carbon|null $created_at
+ * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property-read string|null $banner_url
+ * @property-read string|null $logo_url
+ * @property-read \App\Models\User $user
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile query()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereAddressLine($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereBannerPath($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereCity($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereCountry($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereDescription($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereEmail($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereLat($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereLng($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereLogoPath($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereOpeningHours($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile wherePhone($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile wherePlaceId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile wherePostalCode($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile wherePublished($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereSlug($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereSocials($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereState($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereStoreName($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereWebsite($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|VendorProfile whereWhatsapp($value)
+ */
+	class VendorProfile extends \Eloquent {}
 }
 

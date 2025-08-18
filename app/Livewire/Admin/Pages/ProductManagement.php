@@ -4,7 +4,6 @@ namespace App\Livewire\Admin\Pages;
 
 use Livewire\Component;
 use Livewire\WithPagination;
-use Livewire\WithFileUploads;
 use App\Models\Product;
 use App\Models\User;
 use App\Models\Category;
@@ -13,10 +12,11 @@ use App\Models\ProductVariant;
 use App\Models\VariantAttributeValue;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use App\Notifications\GenericNotification;
 
 class ProductManagement extends Component
 {
-    use WithPagination, WithFileUploads;
+    use WithPagination;
 
     public $search = '';
     public $vendorFilter = '';
@@ -38,7 +38,6 @@ class ProductManagement extends Component
     public $currentCertificate;
 
     public $images = [];
-    public $newImages = [];
     public $certificateFile;
 
     public $variants = [];
@@ -65,7 +64,7 @@ class ProductManagement extends Component
             'name' => 'required|string|min:3',
             'slug' => 'nullable|string|'.$uniqueSlug,
             'description' => 'nullable|string',
-            'price' => 'required|numeric|min:0',
+            'price' => 'nullable|numeric|min:0',
             'category_id' => 'nullable|exists:categories,id',
             'video_url' => 'nullable|url',
             'is_reserved' => 'boolean',
@@ -73,7 +72,6 @@ class ProductManagement extends Component
             'is_active' => 'boolean',
             'status' => 'required|in:pending,approved,rejected',
             'rejectionReason' => 'required_if:status,rejected|string|min:5',
-            'newImages.*' => 'image|max:2048',
             'certificateFile' => 'nullable|file|mimes:pdf|max:4096',
             'variants.*.sku' => 'nullable|string',
             'variants.*.price' => 'nullable|numeric|min:0',
@@ -98,14 +96,38 @@ class ProductManagement extends Component
         return $ids->all();
     }
 
+    private function buildCategoryOptions()
+    {
+        $cats = Category::where('is_active', true)->get(['id','name','parent_id']);
+        $byId = $cats->keyBy('id');
+        $cache = [];
+
+        $pathFor = function ($id) use (&$byId, &$cache) {
+            if (isset($cache[$id])) return $cache[$id];
+            $cur = $byId->get($id);
+            if (!$cur) return $cache[$id] = '';
+            $segments = [$cur->name];
+            $pid = $cur->parent_id;
+            while ($pid && ($p = $byId->get($pid))) {
+                array_unshift($segments, $p->name);
+                $pid = $p->parent_id;
+            }
+            return $cache[$id] = implode(' - ', $segments);
+        };
+
+        return $cats->map(function ($c) use ($pathFor) {
+            $c->full_name = $pathFor($c->id);
+            return $c;
+        })->sortBy('full_name', SORT_NATURAL|SORT_FLAG_CASE)->values();
+    }
+
     public function resetForm()
     {
         $this->reset([
             'name','slug','description','price','category_id',
             'video_url','is_reserved','is_signed','is_active','status',
             'rejectionReason','selectedProductId',
-            'images','newImages','certificateFile',
-            'variants',
+            'images','certificateFile','variants',
         ]);
     }
 
@@ -124,8 +146,7 @@ class ProductManagement extends Component
         $this->is_signed          = $p->is_signed;
         $this->is_active          = $p->is_active;
         $this->status             = $p->status;
-        $this->images             = $p->images ?? [];
-        $this->newImages          = [];
+        $this->images             = is_array($p->images) ? array_values($p->images) : [];
         $this->certificateFile    = null;
         $this->currentCertificate = $p->certificates->last();
 
@@ -142,12 +163,6 @@ class ProductManagement extends Component
         ])->toArray();
 
         $this->dispatch('showProductModal');
-    }
-
-    public function removeExistingImage($i)
-    {
-        unset($this->images[$i]);
-        $this->images = array_values($this->images);
     }
 
     public function addVariant()
@@ -175,54 +190,53 @@ class ProductManagement extends Component
 
         $p = Product::findOrFail($this->selectedProductId);
 
-        $allImages = $this->images;
-        foreach ($this->newImages as $img) {
-            $path = $img->store('admin_products','public');
-            $allImages[] = Storage::url($path);
-        }
+        // Keep images unchanged (read-only on admin)
+        $allImages = is_array($p->images) ? $p->images : [];
 
         if ($this->is_signed && $this->certificateFile) {
-            $certPath = $this->certificateFile->store('certificates','public');
+            $certPath = $this->certificateFile->store('certificates','public'); // relative
             Certificate::create([
                 'product_id' => $p->id,
-                'file_path' => $certPath,
-                'status' => 'pending',
+                'file_path'  => $certPath,
+                'status'     => 'pending',
             ]);
         }
 
         $p->update([
-            'name' => $this->name,
-            'slug' => $this->slug ?: Str::slug($this->name),
-            'description' => $this->description,
-            'price' => $this->price,
-            'category_id' => $this->category_id,
-            'video_url' => $this->video_url,
-            'is_reserved' => $this->is_reserved,
-            'is_signed' => $this->is_signed,
-            'is_active' => $this->is_active,
-            'status' => $this->status,
-            'images' => $allImages,
+            'name'             => $this->name,
+            'slug'             => $this->slug ?: Str::slug($this->name),
+            'description'      => $this->description,
+            'price'            => $this->price,
+            'category_id'      => $this->category_id,
+            'video_url'        => $this->video_url,
+            'is_reserved'      => $this->is_reserved,
+            'is_signed'        => $this->is_signed,
+            'is_active'        => $this->is_active,
+            'status'           => $this->status,
+            'images'           => $allImages,
             'rejection_reason' => $this->status==='rejected' ? $this->rejectionReason : null,
-            'rejected_at' => $this->status==='rejected' ? now() : null,
+            'rejected_at'      => $this->status==='rejected' ? now() : null,
         ]);
 
         foreach ($this->variants as $v) {
+            $variant = $v['id']
+                ? ProductVariant::find($v['id'])
+                : ProductVariant::create([
+                    'product_id'=> $p->id,
+                    'sku'       => $v['sku'],
+                    'price'     => $v['price'],
+                    'stock'     => $v['stock'],
+                ]);
+
             if ($v['id']) {
-                $variant = ProductVariant::find($v['id']);
                 $variant->update([
                     'sku' => $v['sku'],
                     'price' => $v['price'],
                     'stock' => $v['stock'],
                 ]);
-            } else {
-                $variant = ProductVariant::create([
-                    'product_id'=> $p->id,
-                    'sku' => $v['sku'],
-                    'price' => $v['price'],
-                    'stock' => $v['stock'],
-                ]);
             }
-            $variant->attributeValues()->sync($v['value_ids']);
+
+            $variant->attributeValues()->sync($v['value_ids'] ?? []);
         }
 
         $this->dispatch('hideProductModal');
@@ -237,52 +251,91 @@ class ProductManagement extends Component
         $this->dispatch('showRejectModal');
     }
 
-    public function rejectProductConfirmed()
-    {
-        $this->status = 'rejected';
-        $this->validateOnly('rejectionReason');
+    public function rejectProductConfirmed(): void
+{
+    // Flag status so the existing required_if rule applies
+    $this->status = 'rejected';
+    $this->validateOnly('rejectionReason');
 
-        Product::find($this->selectedProductId)
-            ->update([
-                'status' => 'rejected',
-                'rejection_reason' => $this->rejectionReason,
-                'rejected_at' => now(),
-            ]);
+    // Load product + vendor once
+    $product = Product::with('vendor')->findOrFail($this->selectedProductId);
 
-        $this->dispatch('hideRejectModal');
-        session()->flash('success','Product rejected successfully.');
-        $this->resetForm();
+    // Persist rejection state
+    $product->update([
+        'status'           => 'rejected',
+        'rejection_reason' => $this->rejectionReason,
+        'rejected_at'      => now(),
+    ]);
+
+    // Notify vendor (database + broadcast + mail via GenericNotification)
+    if ($product->vendor) {
+        $productUrl = '/vendor/products/'.$product->id; // adjust if you prefer index page
+        $body = 'Your product "'.$product->name.'" was rejected. Reason: '.$this->rejectionReason;
+
+        $product->vendor->notify(new GenericNotification(
+            'Product Rejected',
+            $body,
+            $productUrl
+        ));
     }
 
-    public function render()
-{
-    $query = Product::with([
-            'vendor',
-            'category',
-            'certificates',
-            // Preload variants (lightweight fields for table math)
-            'variants:id,product_id,price,stock,sku',
-        ])
-        ->withCount('variants')
-        ->when($this->search, fn($q)=> $q->where('name','like',"%{$this->search}%"))
-        ->when($this->vendorFilter, fn($q)=> $q->where('vendor_id',$this->vendorFilter))
-        ->when($this->categoryFilter, function($q){
-            if ($c = Category::find($this->categoryFilter)) {
-                $q->whereIn('category_id',$this->getDescendantIds($c));
-            }
-        })
-        ->when($this->statusFilter, fn($q)=> $q->where('status',$this->statusFilter))
-        ->when($this->reservedOnly, fn($q)=> $q->where('is_reserved',true))
-        ->orderByDesc('created_at');
-
-    $products   = $query->paginate(10);
-    $vendors    = User::where('role','vendor')->get();
-    $categories = Category::all();
-    $attributeValues = $this->attributeValues;
-
-    return view('livewire.admin.pages.product-management', compact(
-        'products','vendors','categories','attributeValues'
-    ))->layout('components.layouts.admin');
+    // UI cleanup
+    $this->dispatch('hideRejectModal');
+    session()->flash('success', 'Product rejected successfully.');
+    $this->resetForm();
 }
 
+    
+
+public function approveProduct($id): void
+{
+    $product = Product::with('vendor')->findOrFail($id);
+
+    $product->update([
+        'status' => 'approved',
+        'rejection_reason' => null,
+        'rejected_at' => null,
+    ]);
+
+    // Notify vendor
+    optional($product->vendor)->notify(new GenericNotification(
+        'Product Approved',
+        'Your product "'.$product->name.'" has been approved.',
+        '/vendor/products/'.$product->id
+    ));
+
+    session()->flash('success', 'Product approved successfully.');
+}
+
+
+
+    public function render()
+    {
+        $query = Product::with([
+                'vendor',
+                'category',
+                'certificates',
+                'variants:id,product_id,price,stock,sku',
+            ])
+            ->withCount('variants')
+            ->when($this->search, fn($q)=> $q->where('name','like',"%{$this->search}%"))
+            ->when($this->vendorFilter, fn($q)=> $q->where('vendor_id',$this->vendorFilter))
+            ->when($this->categoryFilter, function($q){
+                if ($c = Category::find($this->categoryFilter)) {
+                    $q->whereIn('category_id',$this->getDescendantIds($c));
+                }
+            })
+            ->when($this->statusFilter, fn($q)=> $q->where('status',$this->statusFilter))
+            ->when($this->reservedOnly, fn($q)=> $q->where('is_reserved',true))
+            ->orderByDesc('created_at');
+
+        $products   = $query->paginate(10);
+        $vendors    = User::where('role','vendor')->get();
+        $categories = $this->buildCategoryOptions();
+        $attributeValues = $this->attributeValues;
+
+        return view('livewire.admin.pages.product-management', compact(
+            'products','vendors','categories','attributeValues'
+        ))->layout('components.layouts.admin');
+    }
 }

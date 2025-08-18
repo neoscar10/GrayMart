@@ -24,7 +24,7 @@
     <!-- Left Logo -->
     <div class="logo-wrapper d-flex align-items-center col-auto">
         <a href="{{ route('admin.dashboard') }}">
-            <img class="dark-logo img-fluid" src="{{ asset('admin_assets/images/logo/logo-dark.png') }}" alt="logo">
+            {{-- <img class="dark-logo img-fluid" src="{{ asset('admin_assets/images/logo/logo-dark.png') }}" alt="logo"> --}}
         </a>
 
        
@@ -51,8 +51,15 @@
         <!-- Right Profile Dropdown -->
         <div class="nav-right">
             <ul class="header-right mb-0 d-flex align-items-center">
+
+                @if (Auth::user()->role == 'vendor')
+                    <li class="nav-item"><a class="nav-link" href="{{ route('vendor.store.profile') }}"><i
+                                class="fa-solid fa-store me-1"></i> Store Profile</a></li>
+                @endif
                 {{-- Bell Icon --}}
                 <li><livewire:notification-bell /></li>
+
+                 
 
                 <li class="profile-nav custom-dropdown position-relative">
                     <div class="user-wrap cursor-pointer">
@@ -72,12 +79,15 @@
 
                     <div class="custom-menu overflow-hidden">
                         <ul class="profile-body list-unstyled m-0 p-2">
-                            <li class="py-1">
+                            {{-- <li class="py-1">
                                 <a href="{{ route('profile.show') }}"
                                     class="text-dark text-decoration-none d-flex align-items-center">
                                     <i class="fas fa-user me-2"></i> Profile
                                 </a>
-                            </li>
+                            </li> --}}
+                           
+                            
+
                             <li class="py-1">
                                 <form method="POST" action="{{ route('logout') }}" id="logout-form">
                                     @csrf
