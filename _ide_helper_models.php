@@ -81,6 +81,36 @@ namespace App\Models{
 /**
  * 
  *
+ * @property-read float $computed_grand_total
+ * @property-read float $computed_subtotal
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\CartItem> $items
+ * @property-read int|null $items_count
+ * @property-read \App\Models\User|null $user
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Cart active()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Cart newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Cart newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Cart query()
+ */
+	class Cart extends \Eloquent {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
+ * @property-read \App\Models\Cart|null $cart
+ * @property-read \App\Models\Product|null $product
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CartItem newModelQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CartItem newQuery()
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|CartItem query()
+ */
+	class CartItem extends \Eloquent {}
+}
+
+namespace App\Models{
+/**
+ * 
+ *
  * @property int $id
  * @property string $name
  * @property string $slug
@@ -213,7 +243,7 @@ namespace App\Models{
  * @property string $name
  * @property string $slug
  * @property string|null $description
- * @property string $price
+ * @property string|null $price
  * @property int|null $category_id
  * @property array<array-key, mixed>|null $images
  * @property string|null $video_url

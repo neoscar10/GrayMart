@@ -153,9 +153,9 @@
         </div>
     </section>
 
-    <div class="my-4 pb-10">
+    {{-- <div class="my-4 pb-10">
         @include('partials.home-page.discount')
-    </div>
+    </div> --}}
 
 
     <!-- ================================ Cart Section End ================================ -->
