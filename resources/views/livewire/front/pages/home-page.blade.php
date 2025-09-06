@@ -8,34 +8,46 @@
     @includeIf('partials.home-page.discount')
 
     {{-- ================= Categories (Parents only) ================= --}}
-    <section class="py-60">
-        <div class="container container-lg">
-            <div class="section-heading mb-3">
-                <h5 class="mb-0">Shop by Category</h5>
-            </div>
-
-            <div class="row g-3">
-                @forelse($parentCategories as $cat)
-                    @php
-                        $catImg = $cat->image ? Storage::url($cat->image) : asset('assets/images/thumbs/placeholder-cat.png');
-                      @endphp
-                    <div class="col-6 col-sm-4 col-md-3 col-lg-2" data-aos="zoom-in">
-                        <a href="{{ route('store.shop', ['category' => $cat->slug]) }}"
-                            class="d-block text-center p-3 border rounded-16 hover-border-main-600 transition-2 bg-white">
-                            <div class="ratio ratio-1x1 mb-2 overflow-hidden rounded-12">
-                                <img src="{{ $catImg }}" class="w-100 h-100 object-fit-cover" alt="{{ $cat->name }}">
-                            </div>
-                            <div class="small fw-semibold text-heading text-truncate">{{ $cat->name }}</div>
-                        </a>
-                    </div>
-                @empty
-                    <div class="col-12">
-                        <div class="alert alert-warning mb-0">No categories yet.</div>
-                    </div>
-                @endforelse
-            </div>
+<section class="py-30">
+    <div class="container container-lg">
+        <div class="section-heading mb-2 py-2">
+            <h5 class="mb-0 pt-2">Shop by Category</h5>
         </div>
-    </section>
+
+        <div class="product-one-slider g-12 pt-4">
+            @forelse($parentCategories as $cat)
+                @php
+                    $catImg = $cat->image ? Storage::url($cat->image) : asset('assets/images/thumbs/placeholder-cat.png');
+                @endphp
+
+                <div data-aos="fade-up">
+                    <a href="{{ route('store.shop', ['category' => $cat->slug, 'selected_categories' => [$cat->id]]) }}"
+                        class="text-decoration-none text-reset d-block">
+                        <div class="card border-0 shadow-sm rounded-3 h-100">
+                            <!-- Square, no-crop image box -->
+                            <div
+                                class="ratio ratio-1x1 bg-light rounded-3 overflow-hidden d-flex align-items-center justify-content-center">
+                                <img src="{{ $catImg }}" alt="{{ $cat->name }}" class="w-100 h-100 object-fit-contain p-2"
+                                    loading="lazy">
+                            </div>
+
+                            <div class="card-body p-2 text-center">
+                                <div class="fw-semibold small text-truncate">{{ $cat->name }}</div>
+                                <div class="d-flex justify-content-center mt-1">
+                                    <span class="badge rounded-pill bg-light text-secondary border">{{ __('Shop') }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            @empty
+                <div class="alert alert-warning">No products to show yet.</div>
+            @endforelse
+        </div>
+    </div>
+</section>
+
+
 
     {{-- ================= Flash Sales (Products) ================= --}}
     <div class="product pt-60">
@@ -64,12 +76,12 @@
             <div class="product-one-slider g-12">
                 @forelse($flashProducts as $p)
                     @php
-                        $img = is_array($p->images) && count($p->images) ? Storage::url($p->images[0]) : asset('assets/images/thumbs/product-placeholder.png');
-                        // If you have true discounts, adjust this logic. Here: show buy_now_price if lower.
-                        $basePrice = $p->price;
-                        $dealPrice = (!is_null($p->buy_now_price) && $p->buy_now_price > 0 && $p->buy_now_price < $p->price) ? $p->buy_now_price : null;
-                        $rating = round($p->reviews_avg_rating ?? 0, 1);
-                        $reviewsCount = $p->reviews_count ?? 0;
+    $img = is_array($p->images) && count($p->images) ? Storage::url($p->images[0]) : asset('assets/images/thumbs/product-placeholder.png');
+    // If you have true discounts, adjust this logic. Here: show buy_now_price if lower.
+    $basePrice = $p->price;
+    $dealPrice = (!is_null($p->buy_now_price) && $p->buy_now_price > 0 && $p->buy_now_price < $p->price) ? $p->buy_now_price : null;
+    $rating = round($p->reviews_avg_rating ?? 0, 1);
+    $reviewsCount = $p->reviews_count ?? 0;
                       @endphp
 
                     <div class="" data-aos="fade-up">

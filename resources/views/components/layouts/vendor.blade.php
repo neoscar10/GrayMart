@@ -2,6 +2,8 @@
 <html lang="en">
 
 <head>
+    <base href="{{ url('/') }}/">
+
     <meta charset="UTF-8">
     <title>Graymart Admin Panel</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />

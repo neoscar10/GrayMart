@@ -48,7 +48,7 @@
             </li>
             <li class="sidebar-list">
                 <a class="sidebar-link {{ request()->routeIs('vendor.order-management') ? 'active' : '' }}"
-                    href="" 
+                    href="{{route('vendor.order-management')}}" 
                     @if(request()->routeIs('vendor.order-management')) aria-current="page" @endif>
                     <svg class="stroke-icon">
                         <use href="...#Bag"></use>

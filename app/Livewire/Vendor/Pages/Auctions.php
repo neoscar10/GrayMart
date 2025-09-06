@@ -15,9 +15,14 @@ class Auctions extends Component
 {
     use WithPagination;
 
+    // ---- Canonical statuses (match DB) ----
+    private const STATUS_SCHEDULED = 'scheduled';
+    private const STATUS_LIVE      = 'live';     // <- was "running" before
+    private const STATUS_ENDED     = 'ended';
+
     // Filters
     public ?int $product = null; // from query string (?product=ID)
-    public ?string $statusFilter = null; // scheduled|running|ended|null
+    public ?string $statusFilter = null; // scheduled|live|ended|null
     public int $perPage = 10;
 
     // Form state
@@ -27,6 +32,10 @@ class Auctions extends Component
     public ?string $ends_at = null;   // 'YYYY-MM-DDTHH:MM'
     public int $anti_sniping_window = 30; // minutes
     public bool $anonymize_bidders = false;
+
+    // Confirmations
+    public ?int $confirmDeleteId = null;
+    public ?int $confirmEndId    = null;
 
     protected $queryString = [
         'product' => ['except' => null],
@@ -88,6 +97,25 @@ class Auctions extends Component
             return;
         }
 
+        // Prevent overlapping scheduled/live auctions for same product
+        $overlapQuery = Auction::query()
+            ->where('product_id', $data['product_id'])
+            ->where('vendor_id', auth()->id())
+            ->when($this->auctionId, fn($q) => $q->where('id', '!=', $this->auctionId))
+            ->where(function ($q) use ($start, $end) {
+                $q->where(function ($qq) use ($start, $end) {
+                    // [s1,e1] overlaps [s2,e2] if s1 < e2 AND s2 < e1
+                    $qq->where('starts_at', '<', $end)
+                       ->where('ends_at', '>', $start);
+                });
+            })
+            ->whereIn('status', [self::STATUS_SCHEDULED, self::STATUS_LIVE]);
+
+        if ($overlapQuery->exists()) {
+            $this->addError('starts_at', 'Overlaps an existing scheduled/live auction for this product.');
+            return;
+        }
+
         $status = $this->computeStatus($start, $end, now());
 
         if ($this->auctionId) {
@@ -112,22 +140,58 @@ class Auctions extends Component
         $this->resetForm();
     }
 
-    public function endNow(int $id): void
+    // ---- End Now (with confirmation) ----
+    public function confirmEndNow(int $id): void
     {
-        $a = Auction::where('vendor_id', auth()->id())->findOrFail($id);
-        Gate::authorize('update', $a);
-        $a->ends_at = now();
-        $a->status  = 'ended';
-        $a->save();
-        $this->dispatch('toast', ['type'=>'success','message'=>'Auction ended.']);
+        $this->confirmEndId = $id;
+        $this->dispatch('show-end-modal');
     }
 
-    public function delete(int $id): void
+    public function endNowConfirmed(): void
     {
-        $a = Auction::where('vendor_id', auth()->id())->findOrFail($id);
+        if (!$this->confirmEndId) return;
+
+        $a = Auction::where('vendor_id', auth()->id())->findOrFail($this->confirmEndId);
+        Gate::authorize('update', $a);
+
+        // Only allow ending scheduled/live
+        if (!in_array($a->status, [self::STATUS_SCHEDULED, self::STATUS_LIVE], true)) {
+            $this->dispatch('toast', ['type'=>'warning','message'=>'Auction already ended.']);
+        } else {
+            $a->ends_at = now();
+            $a->status  = self::STATUS_ENDED; // <- safe, consistent
+            $a->save();
+            $this->dispatch('toast', ['type'=>'success','message'=>'Auction ended.']);
+        }
+
+        $this->confirmEndId = null;
+        $this->dispatch('hide-end-modal');
+    }
+
+    // ---- Delete (with confirmation) ----
+    public function confirmDelete(int $id): void
+    {
+        $this->confirmDeleteId = $id;
+        $this->dispatch('show-delete-modal');
+    }
+
+    public function deleteConfirmed(): void
+    {
+        if (!$this->confirmDeleteId) return;
+
+        $a = Auction::where('vendor_id', auth()->id())->findOrFail($this->confirmDeleteId);
         Gate::authorize('delete', $a);
-        $a->delete();
-        $this->dispatch('toast', ['type'=>'success','message'=>'Auction deleted.']);
+
+        // Optional: block deletion of live auctions
+        if ($a->status === self::STATUS_LIVE) {
+            $this->dispatch('toast', ['type'=>'warning','message'=>'You cannot delete a live auction. End it first.']);
+        } else {
+            $a->delete();
+            $this->dispatch('toast', ['type'=>'success','message'=>'Auction deleted.']);
+        }
+
+        $this->confirmDeleteId = null;
+        $this->dispatch('hide-delete-modal');
     }
 
     /* ------------------- Helpers -------------------- */
@@ -147,7 +211,7 @@ class Auctions extends Component
     {
         $this->reset([
             'auctionId','product_id','starts_at','ends_at',
-            'anti_sniping_window','anonymize_bidders'
+            'anti_sniping_window','anonymize_bidders',
         ]);
         $this->anti_sniping_window = 30;
         $this->anonymize_bidders   = false;
@@ -157,9 +221,9 @@ class Auctions extends Component
 
     protected function computeStatus(Carbon $start, Carbon $end, Carbon $now): string
     {
-        if ($now->lt($start)) return 'scheduled';
-        if ($now->between($start, $end)) return 'running';
-        return 'ended';
+        if ($now->lt($start)) return self::STATUS_SCHEDULED;
+        if ($now->gte($start) && $now->lt($end)) return self::STATUS_LIVE;
+        return self::STATUS_ENDED;
     }
 
     public function updatingProduct() { $this->resetPage(); }
@@ -170,10 +234,10 @@ class Auctions extends Component
         $vendorId = auth()->id();
         $now = now();
 
-        // CASE expression to derive status at query time
+        // Use strict boundaries so an auction ending exactly at 'ends_at' is considered ended.
         $case = "CASE 
                     WHEN ? < starts_at THEN 'scheduled'
-                    WHEN ? BETWEEN starts_at AND ends_at THEN 'running'
+                    WHEN ? >= starts_at AND ? < ends_at THEN 'live'
                     ELSE 'ended'
                  END";
 
@@ -181,13 +245,11 @@ class Auctions extends Component
             ->with(['product:id,name'])
             ->where('vendor_id', $vendorId)
             ->when($this->product, fn($q)=>$q->where('product_id', $this->product))
-            // Highest bid as a scalar subquery
             ->select('auctions.*')
-            ->selectRaw("($case) as derived_status", [$now, $now])
+            ->selectRaw("($case) as derived_status", [$now, $now, $now])
             ->selectRaw("(SELECT MAX(bids.amount) FROM bids WHERE bids.auction_id = auctions.id) as highest_amount")
             ->orderByDesc('starts_at');
 
-        // Filter by derived status using HAVING (allows alias)
         if ($this->statusFilter) {
             $query->having('derived_status', '=', $this->statusFilter);
         }

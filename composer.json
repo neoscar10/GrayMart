@@ -6,11 +6,13 @@
     "license": "MIT",
     "require": {
         "php": "^8.2",
+        "barryvdh/laravel-dompdf": "^3.1",
         "consoletvs/charts": "^6.8",
         "laravel/framework": "^11.0",
         "laravel/jetstream": "^5.3",
         "laravel/tinker": "^2.9",
-        "livewire/livewire": "^3.6"
+        "livewire/livewire": "^3.6",
+        "srmklive/paypal": "^3.0"
     },
     "require-dev": {
         "barryvdh/laravel-ide-helper": "^3.5",

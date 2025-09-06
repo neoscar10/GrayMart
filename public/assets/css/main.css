@@ -10644,3 +10644,83 @@ input[type="radio"]:checked + .payment-option {
         color: #000;
         font-weight: 600;
     }
+
+
+
+
+       /* Category drop down */
+    
+        Anchor dropdown to the trigger
+        #gm-cat-wrap {
+            position: relative;
+        }
+    
+        #gm-cat-dd {
+            position: absolute;
+            left: 0;
+            top: 100%;
+            z-index: 1050;
+        }
+    
+        /* Each list item can own a submenu column */
+        .gm-cat-li {
+            position: relative;
+        }
+    
+        /* Submenu column: hidden by default, bulletproof against other libs */
+        .gm-subcol {
+            display: none !important;
+            /* force hidden until hover */
+            position: absolute;
+            top: 0;
+            left: calc(100% + 8px);
+            /* sit to the right of the parent column */
+            min-width: 280px;
+            background: #fff;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            border-radius: 12px;
+            padding: 8px;
+            z-index: 1060;
+            /* above the root dropdown */
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+        }
+    
+        .gm-subcol--inner {
+            min-width: 260px;
+        }
+    
+        /* Desktop: open root on hover, show only the hovered item's submenu */
+        @media (min-width: 992px) {
+            #gm-cat-wrap:hover #gm-cat-dd {
+                display: block;
+            }
+    
+            .gm-cat-li:hover>.gm-subcol {
+                display: block !important;
+            }
+        }
+    
+          [data-gm-parent].active>a {
+              background: var(--bs-success-bg-subtle, #e6f9f0);
+              border-radius: 6px;
+          }
+
+
+/* Sidebar flyout like navbar — hidden by default, show on li:hover */
+.gm-side-li {
+    position: relative;
+}
+
+.gm-side-sub {
+    display: none !important;
+    /* bulletproof hide */
+    z-index: 1055;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+@media (min-width: 992px) {
+    .gm-side-li:hover>.gm-side-sub {
+        display: block !important;
+    }
+}
+

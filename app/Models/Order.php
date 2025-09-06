@@ -8,16 +8,29 @@ class Order extends Model
 {
     protected $fillable = [
         'user_id',
-        // 'vendor_id',
+        'vendor_id',           
+        'subtotal_amount',      
+        'shipping_amount',      
+        'discount_total',       
         'total_amount',
+        'currency',            
+        'payment_method',       
+        'payment_status',       
+        'external_payment_id',  
+        'external_payment_payload', 
         'status',
         'shipping_address',
-        'admin_note'
+        'admin_note',
     ];
-
     protected $casts = [
         'shipping_address' => 'array',
+        'external_payment_payload' => 'array',
+        'subtotal_amount' => 'decimal:2',
+        'shipping_amount' => 'decimal:2',
+        'discount_total'  => 'decimal:2',
+        'total_amount'    => 'decimal:2',
     ];
+
 
     public function customer()
     {

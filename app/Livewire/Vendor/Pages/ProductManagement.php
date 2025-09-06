@@ -18,9 +18,9 @@ use App\Livewire\Traits\WithCategoryPicker;
 class ProductManagement extends Component
 {
     use WithPagination, WithFileUploads;
-     use WithCategoryPicker;
+    use WithCategoryPicker;
 
-    // Filters & search
+    // -------- Listing / filters ----------
     public string $search = '';
     public ?int $categoryFilter = null;
     public ?string $statusFilter = null; // pending|approved|rejected|null
@@ -29,54 +29,56 @@ class ProductManagement extends Component
     public int $perPage = 10;
 
     // Bulk selection
-    public array $selected = [];   // product ids
+    public array $selected = [];
     public bool $selectPage = false;
-    public ?string $pendingBulkAction = null; // 'activate'|'deactivate'|'delete'
+    public ?string $pendingBulkAction = null; // activate|deactivate|delete
 
-    // Form (create/edit)
+    // -------- Wizard state (create/edit) ----------
     public ?int $editingId = null;
+    public int $step = 1; // 1 or 2
+    public int $modalKey = 0;
+
+    // Step 1: core identity + pricing decision
     public string $name = '';
     public ?int $category_id = null;
-    public string $description = '';
-    public float|string $price = '';
-    public string $video_url = '';
-    public ?string $videoId = null; // derived from video_url
-    public bool $is_reserved = false;
-    public bool $is_signed = false; // vendor can mark signed; admin approves certificate
-    public bool $is_active = true;  // vendor can toggle visibility, status stays admin-controlled
-
-    // Pricing mode toggle (UX only, not persisted): false = single price, true = per-variant pricing
     public bool $use_variants = false;
+    public bool $is_reserved = false;
+    public bool $is_signed = false;
+    public bool $is_active = true;
+    public float|string $price = ''; // base price when not variants nor reserved
 
-    // Auction fields (exist on Product model)
+    // Auction (reserved) – validated only if is_reserved
     public float|string $reserve_price = '';
     public float|string $min_increment = '';
     public float|string $buy_now_price = '';
 
-    // Status (read-only on form; set to pending on save)
-    public string $status = 'pending';
+    // Step 2: assets & enrichment
+    public string $description = '';
+    public string $video_url = '';
+    public ?string $videoId = null;
 
-    // Images
     /** @var array<int, \Livewire\Features\SupportFileUploads\TemporaryUploadedFile> */
-    public array $newImages = [];            // new uploads
+    public array $newImages = [];
     /** @var array<int, string> */
-    public array $existingImages = [];       // persisted *relative* storage paths
+    public array $existingImages = [];
     /** @var array<int, int|string> */
-    public array $toRemove = [];             // keys from existingImages to remove
+    public array $toRemove = [];
 
-    // Reordering (receive sorted keys from JS)
-    public array $existingOrder = [];        // e.g., [2,0,1]
-    public array $newOrder = [];             // e.g., [1,0,2]
+    public array $existingOrder = [];
+    public array $newOrder = [];
 
     // Variants
-    public array $variants = []; // [ ['id'=>?, 'sku'=>'', 'price'=>?, 'stock'=>?, 'value_ids'=>[], 'value_ids_by_attr'=>[]], ... ]
-    public $attributeValues;     // Collection of VariantAttributeValue with 'attribute' relationship (for selects)
-    public array $attributesIndex = []; // attribute_id => attribute_name
-    public array $valuesByAttribute = []; // attribute_id => [ ['id'=>, 'value'=>], ... ]
+    public array $variants = []; // [ {id, sku, price, stock, value_ids[], value_ids_by_attr{attrId:[valueId,...]}} ]
+    public $attributeValues;
+    public array $attributesIndex = [];
+    public array $valuesByAttribute = [];
 
-    // Certificate (if signed)
-    public $certificateFile = null; // UploadedFile|null
-    public bool $hasCertificate = false; // computed for edit: true if product already has any certificate uploaded
+    // Certificate (signed items)
+    public $certificateFile = null;
+    public bool $hasCertificate = false;
+
+    // Status (read-only)
+    public string $status = 'pending';
 
     // Delete (single)
     public ?int $deleteId = null;
@@ -91,8 +93,8 @@ class ProductManagement extends Component
 
     public function mount(): void
     {
+        // Build attributes/value maps once
         $this->attributeValues = VariantAttributeValue::with('attribute')->get();
-        // Build attribute -> values lists for nicer UI
         $this->attributesIndex = $this->attributeValues
             ->pluck('attribute.name', 'attribute_id')
             ->unique()
@@ -100,21 +102,18 @@ class ProductManagement extends Component
 
         $this->valuesByAttribute = $this->attributeValues
             ->groupBy('attribute_id')
-            ->map(function ($group) {
-                return $group->map(fn($v) => ['id' => $v->id, 'value' => $v->value])->values()->all();
-            })
+            ->map(fn($g) => $g->map(fn($v) => ['id' => $v->id, 'value' => $v->value])->values()->all())
             ->toArray();
     }
 
-    public function updatingSearch() { $this->resetPage(); }
-    public function updatingCategoryFilter() { $this->resetPage(); }
-    public function updatingStatusFilter() { $this->resetPage(); }
-    public function updatingReservedOnly() { $this->resetPage(); }
-    public function updatingActiveOnly() { $this->resetPage(); }
+    // Pagination resetters
+    public function updatingSearch(){ $this->resetPage(); }
+    public function updatingCategoryFilter(){ $this->resetPage(); }
+    public function updatingStatusFilter(){ $this->resetPage(); }
+    public function updatingReservedOnly(){ $this->resetPage(); }
+    public function updatingActiveOnly(){ $this->resetPage(); }
 
-    
-
-    /* ---------------------- BULK ACTIONS ---------------------- */
+    /* ================== BULK ================== */
 
     public function updatedSelectPage($value): void
     {
@@ -203,12 +202,14 @@ class ProductManagement extends Component
         $this->dispatch('hide-bulk-modal');
     }
 
-    /* ---------------------- CRUD ---------------------- */
+    /* ================== WIZARD (CREATE/EDIT) ================== */
 
     public function openCreate(): void
     {
         $this->resetForm();
         $this->buildFlatCategories();
+        $this->step = 1;
+        $this->modalKey++;
         $this->dispatch('show-product-modal');
     }
 
@@ -224,22 +225,27 @@ class ProductManagement extends Component
 
         $this->authorize('update', $p);
 
+        // Populate Step 1
         $this->editingId    = $p->id;
         $this->name         = (string) $p->name;
         $this->category_id  = $p->category_id;
-        $this->description  = (string) ($p->description ?? '');
-        $this->price        = (string) ($p->price ?? '');
-        $this->video_url    = (string) ($p->video_url ?? '');
-        $this->videoId      = $this->extractYoutubeId($this->video_url);
         $this->is_reserved  = (bool) $p->is_reserved;
         $this->is_signed    = (bool) $p->is_signed;
         $this->is_active    = (bool) $p->is_active;
-        $this->status       = (string) $p->status;
 
-        // Auction fields
+        // price & variants
+        $this->use_variants = $p->variants()->exists() && $p->variants()->whereNotNull('price')->exists();
+        $this->price        = ($this->use_variants || $this->is_reserved) ? '' : (string) ($p->price ?? '');
+
+        // Auction
         $this->reserve_price = (string) ($p->reserve_price ?? '');
         $this->min_increment = (string) ($p->min_increment ?? '');
         $this->buy_now_price = (string) ($p->buy_now_price ?? '');
+
+        // Step 2
+        $this->description  = (string) ($p->description ?? '');
+        $this->video_url    = (string) ($p->video_url ?? '');
+        $this->videoId      = $this->extractYoutubeId($this->video_url);
 
         $this->existingImages = is_array($p->images) ? array_values($p->images) : [];
         $this->newImages = [];
@@ -247,7 +253,7 @@ class ProductManagement extends Component
         $this->existingOrder = range(0, max(0, count($this->existingImages)-1));
         $this->newOrder = [];
 
-        // Variants (populate both legacy flat array and new per-attribute binding)
+        // Variants
         $this->variants = $p->variants->map(function ($v) {
             $byAttr = $v->attributeValues
                 ->groupBy('attribute_id')
@@ -259,163 +265,116 @@ class ProductManagement extends Component
                 'sku'                  => $v->sku,
                 'price'                => $v->price,
                 'stock'                => $v->stock,
-                'value_ids'            => $v->attributeValues->pluck('id')->toArray(), // legacy
-                'value_ids_by_attr'    => $byAttr,                                     // new UI binding
+                'value_ids'            => $v->attributeValues->pluck('id')->toArray(),
+                'value_ids_by_attr'    => $byAttr,
             ];
         })->toArray();
 
-        // Pricing mode: on if there is at least one variant with a price
-        $this->use_variants = $p->variants->count() > 0 && $p->variants->whereNotNull('price')->count() > 0;
-
-        // If reserved, UI must not allow/use variant pricing
-        if ($this->is_reserved) {
-            $this->use_variants = false;
-        }
-
-        // Certificates presence (any status)
+        // Certificates presence
         $this->hasCertificate = $p->certificates->isNotEmpty();
 
         $this->buildFlatCategories();
 
+        $this->status = (string) $p->status;
+        $this->step = 1;
+        $this->modalKey++;
         $this->dispatch('show-product-modal');
     }
 
-    public function addVariant(): void
+    /* ------ Step navigation with per-step validation ------ */
+
+    public function nextStep(): void
     {
-        $this->variants[] = [
-            'id'                 => null,
-            'sku'                => '',
-            'price'              => null,
-            'stock'              => null,
-            'value_ids'          => [],   // legacy (safe to keep)
-            'value_ids_by_attr'  => [],   // needed for multi-attribute UI
-        ];
-        $this->use_variants = true; // UX: adding a variant flips pricing mode on
+        // Validate Step 1 only
+        $this->validateStep1();
+        $this->step = 2;
     }
 
-    public function removeVariant(int $i): void
+    public function prevStep(): void
     {
-        if (!array_key_exists($i, $this->variants)) return;
-
-        $v = $this->variants[$i];
-        if (!empty($v['id'])) {
-            $variant = ProductVariant::where('id', $v['id'])
-                ->whereHas('product', fn($q)=>$q->where('vendor_id', auth()->id()))
-                ->first();
-            if ($variant) {
-                $variant->attributeValues()->detach();
-                $variant->delete();
-            }
-        }
-        array_splice($this->variants, 1 * $i, 1);
-
-        // If we removed the last one, fall back to single price mode
-        if (empty($this->variants)) {
-            $this->use_variants = false;
-        }
+        $this->step = 1;
     }
 
-    public function updatedUseVariants($value): void
+    /* ------ Step 1 rules ------ */
+    protected function validateStep1(): void
     {
-        // When switching to variants mode, ensure there is at least one row to edit
-        if ($value && empty($this->variants)) {
-            $this->addVariant();
-        }
-    }
-
-    // NEW: If reserved is turned on, force variants off (and UI will hide base price too)
-    public function updatedIsReserved($value): void
-    {
-        if ($value) {
-            $this->use_variants = false;
-        }
-    }
-
-    public function updatedVideoUrl(): void
-    {
-        $this->videoId = $this->extractYoutubeId($this->video_url);
-    }
-
-    protected function extractYoutubeId(?string $url): ?string
-    {
-        if (!$url) return null;
-        $patterns = [
-            '~youtu\.be/([A-Za-z0-9_-]{6,})~i',
-            '~youtube\.com.*[?&]v=([A-Za-z0-9_-]{6,})~i',
-            '~youtube\.com/embed/([A-Za-z0-9_-]{6,})~i',
-            '~youtube\.com/shorts/([A-Za-z0-9_-]{6,})~i',
+        $rules = [
+            'name'        => ['required','string','max:200'],
+            'category_id' => ['required', Rule::exists('categories','id')],
+            'is_reserved' => ['boolean'],
+            'is_signed'   => ['boolean'],
+            'is_active'   => ['boolean'],
+            'use_variants'=> ['boolean'],
         ];
 
-        foreach ($patterns as $p) {
-            if (preg_match($p, $url, $m)) return $m[1];
-        }
-        return null;
-    }
-
-    public function save(): void
-    {
-        // Build dynamic rules for price and variants based on mode
-        $rules = $this->rules();
-
         if ($this->is_reserved) {
-            // Auction flow: no base price or variant price required/used
+            // Auction flow: price not required; auction fields apply
             $rules['price'] = ['nullable','numeric','min:0'];
-            $rules['variants.*.price'] = ['nullable','numeric','min:0'];
-        } elseif ($this->use_variants) {
-            // Variant pricing (non-auction): variants need prices, base product price not required
-            $rules['price'] = ['nullable','numeric','min:0'];
-            $rules['variants.*.price'] = ['required','numeric','min:0'];
-            if (empty($this->variants)) {
-                $this->addError('variants', 'Add at least one variant for variant pricing.');
-                return;
-            }
-        } else {
-            // Single price (non-auction)
-            $rules['price'] = ['required','numeric','min:0'];
-            $rules['variants.*.price'] = ['nullable','numeric','min:0'];
-        }
-
-        // Auction field rules
-        if ($this->is_reserved) {
             $rules['min_increment'] = ['required','numeric','min:1'];
             $rules['reserve_price'] = ['nullable','numeric','min:0'];
             $rules['buy_now_price'] = ['nullable','numeric','min:0'];
+        } elseif ($this->use_variants) {
+            // Variants pricing: base price not required here
+            $rules['price'] = ['nullable','numeric','min:0'];
         } else {
-            $rules['min_increment'] = ['nullable','numeric','min:0'];
-            $rules['reserve_price'] = ['nullable','numeric','min:0'];
-            $rules['buy_now_price'] = ['nullable','numeric','min:0'];
+            // Single price
+            $rules['price'] = ['required','numeric','min:0'];
         }
 
-        // Validate
-        $data = $this->validate($rules);
+        $this->validate($rules);
 
-        // Logical auction constraints
+        // Logical auction constraint
         if ($this->is_reserved && $this->reserve_price !== '' && $this->buy_now_price !== '') {
             if ((float)$this->buy_now_price < (float)$this->reserve_price) {
                 $this->addError('buy_now_price', 'Buy now price must be greater than or equal to reserve price.');
-                return;
             }
         }
+    }
 
-        // Image constraints
+    /* ------ Step 2 rules ------ */
+    protected function validateStep2(): void
+    {
+        $rules = [
+            'description' => ['nullable','string','max:5000'],
+            'video_url'   => ['nullable','url','max:255'],
+            'newImages.*' => ['image','mimes:jpg,jpeg,png,webp','max:4096'],
+        ];
+
+        // Image constraints: at least one image either existing or new
         $totalExisting = count($this->existingImages) - count($this->toRemove);
         if (!$this->editingId) {
+            // New product must upload at least 1
             if (count($this->newImages) === 0) {
                 $this->addError('newImages', 'Please upload at least one product image.');
-                return;
             }
         } else {
             if ($totalExisting <= 0 && count($this->newImages) === 0) {
                 $this->addError('newImages', 'Please keep or upload at least one product image.');
-                return;
             }
         }
         if ($totalExisting + count($this->newImages) > 8) {
             $this->addError('newImages', 'You can have a maximum of 8 images per product.');
-            return;
         }
 
-        // Certificate requirement
+        // Variants required pricing logic only when using variants AND not reserved
+        if ($this->use_variants && !$this->is_reserved) {
+            $rules['variants.*.price'] = ['required','numeric','min:0'];
+        } else {
+            $rules['variants.*.price'] = ['nullable','numeric','min:0'];
+        }
+
+        $rules = array_merge($rules, [
+            'variants.*.sku'   => ['nullable','string','max:120'],
+            'variants.*.stock' => ['nullable','integer','min:0'],
+            'variants.*.value_ids' => ['array'],
+            'variants.*.value_ids.*' => ['exists:variant_attribute_values,id'],
+            'variants.*.value_ids_by_attr' => ['array'],
+            'variants.*.value_ids_by_attr.*' => ['array'],
+            'variants.*.value_ids_by_attr.*.*' => ['exists:variant_attribute_values,id'],
+            'certificateFile' => ['nullable','file','mimes:pdf','max:4096'],
+        ]);
+
+        // Certificate requirement for signed items
         if ($this->is_signed) {
             $needsCertNow = false;
             if (!$this->editingId) {
@@ -425,9 +384,28 @@ class ProductManagement extends Component
             }
             if ($needsCertNow && !$this->certificateFile) {
                 $this->addError('certificateFile', 'Signed items require a certificate PDF.');
+            }
+        }
+
+        $this->validate($rules);
+    }
+
+    /* ------ Save from Step 2 (after both steps valid) ------ */
+    public function save(): void
+    {
+        // Validate step 1 (in case user jumped back) and step 2
+        $this->validateStep1();
+        $this->validateStep2();
+
+        // Also logical auction constraint (again defensively)
+        if ($this->is_reserved && $this->reserve_price !== '' && $this->buy_now_price !== '') {
+            if ((float)$this->buy_now_price < (float)$this->reserve_price) {
+                $this->addError('buy_now_price', 'Buy now price must be greater than or equal to reserve price.');
                 return;
             }
         }
+
+        // Compute images count constraints already enforced above
 
         $isCreate = !$this->editingId;
         if ($this->editingId) {
@@ -438,7 +416,7 @@ class ProductManagement extends Component
             $product->vendor_id = auth()->id();
         }
 
-        // Reorder existing images
+        // Reorder & removals for existing images
         if (!empty($this->existingOrder) && count($this->existingImages) > 1) {
             $reordered = [];
             foreach ($this->existingOrder as $k) {
@@ -446,8 +424,6 @@ class ProductManagement extends Component
             }
             $this->existingImages = $reordered;
         }
-
-        // Remove flagged existing images
         if (!empty($this->toRemove)) {
             foreach ($this->toRemove as $key) {
                 if (isset($this->existingImages[$key])) {
@@ -458,7 +434,7 @@ class ProductManagement extends Component
             $this->existingImages = array_values($this->existingImages);
         }
 
-        // Reorder new (by dragged order)
+        // Reorder new uploads
         if (!empty($this->newOrder) && count($this->newImages) > 1) {
             $reorderedNew = [];
             foreach ($this->newOrder as $idx) {
@@ -474,12 +450,12 @@ class ProductManagement extends Component
         }
         $images = array_values(array_filter([...$this->existingImages, ...$stored]));
 
-        // If using variants OR reserved for auction: base price is null
+        // Base price is null when using variants OR reserved
         $finalProductPrice = ($this->use_variants || $this->is_reserved)
             ? null
             : ((string)$this->price === '' ? null : (float)$this->price);
 
-        // Save product (status back to pending)
+        // Save product (status -> pending)
         $product->fill([
             'name'            => $this->name,
             'category_id'     => $this->category_id,
@@ -492,7 +468,7 @@ class ProductManagement extends Component
             'status'          => 'pending',
             'rejection_reason'=> null,
             'rejected_at'     => null,
-            // Auction fields
+            // Auction
             'reserve_price'   => $this->is_reserved && $this->reserve_price !== '' ? (float)$this->reserve_price : null,
             'min_increment'   => $this->is_reserved && $this->min_increment !== '' ? (float)$this->min_increment : null,
             'buy_now_price'   => $this->is_reserved && $this->buy_now_price !== '' ? (float)$this->buy_now_price : null,
@@ -500,10 +476,9 @@ class ProductManagement extends Component
         ]);
         $product->save();
 
-        // Variants upsert
+        // Variants upsert (only meaningful when not reserved)
         $seenVariantIds = [];
         foreach ($this->variants as $v) {
-            // SKU: keep auto-generate fallback
             $providedSku = trim((string) ($v['sku'] ?? ''));
             $sku = $providedSku !== '' ? $providedSku : $this->generateSku($product);
 
@@ -518,7 +493,6 @@ class ProductManagement extends Component
                 }
             }
 
-            // Variant price applies only when use_variants is on AND not reserved
             $variantPrice = ($this->use_variants && !$this->is_reserved) ? ($v['price'] ?? null) : null;
 
             $variant = null;
@@ -544,26 +518,23 @@ class ProductManagement extends Component
             if ($variant) {
                 $seenVariantIds[] = $variant->id;
 
-                // Flatten multi-attribute selections, fallback to legacy flat array
+                // Sync attribute values
                 if (isset($v['value_ids_by_attr']) && is_array($v['value_ids_by_attr'])) {
                     $all = [];
                     foreach ($v['value_ids_by_attr'] as $ids) {
                         foreach ((array) $ids as $id) {
-                            if ($id !== null && $id !== '') {
-                                $all[] = (int) $id;
-                            }
+                            if ($id !== null && $id !== '') $all[] = (int) $id;
                         }
                     }
                     $valueIds = array_values(array_unique($all));
                 } else {
                     $valueIds = array_values(array_unique(array_map('intval', (array) ($v['value_ids'] ?? []))));
                 }
-
                 $variant->attributeValues()->sync($valueIds);
             }
         }
 
-        // Remove variants that were deleted in UI
+        // Remove variants deleted in UI
         if ($product->exists) {
             ProductVariant::where('product_id', $product->id)
                 ->whereNotIn('id', $seenVariantIds ?: [0])
@@ -584,11 +555,83 @@ class ProductManagement extends Component
             ]);
         }
 
-        // UI feedback
+        // UI feedback & reset
         session()->flash('success', $isCreate ? 'Product created and sent for approval.' : 'Product updated and sent for approval.');
         $this->dispatch('hide-product-modal');
         $this->dispatch('toast', ['type'=>'success','message'=>'Product saved. Awaiting admin approval.']);
         $this->resetForm();
+    }
+
+    /* ================== Inline interactions ================== */
+
+    public function updatedUseVariants($value): void
+    {
+        if ($value && empty($this->variants)) {
+            $this->addVariant();
+        }
+    }
+
+    public function updatedIsReserved($value): void
+    {
+        if ($value) {
+            $this->use_variants = false; // reserved disables variant pricing
+        }
+    }
+
+    public function updatedVideoUrl(): void
+    {
+        $this->videoId = $this->extractYoutubeId($this->video_url);
+    }
+
+    public function addVariant(): void
+    {
+        $this->variants[] = [
+            'id'                 => null,
+            'sku'                => '',
+            'price'              => null,
+            'stock'              => null,
+            'value_ids'          => [],
+            'value_ids_by_attr'  => [],
+        ];
+        $this->use_variants = true;
+    }
+
+    public function removeVariant(int $i): void
+    {
+        if (!array_key_exists($i, $this->variants)) return;
+
+        $v = $this->variants[$i];
+        if (!empty($v['id'])) {
+            $variant = ProductVariant::where('id', $v['id'])
+                ->whereHas('product', fn($q)=>$q->where('vendor_id', auth()->id()))
+                ->first();
+            if ($variant) {
+                $variant->attributeValues()->detach();
+                $variant->delete();
+            }
+        }
+        array_splice($this->variants, 1 * $i, 1);
+
+        if (empty($this->variants)) {
+            $this->use_variants = false;
+        }
+    }
+
+    public function reorderExisting(array $orderedKeys): void
+    {
+        $this->existingOrder = array_map('intval', $orderedKeys);
+    }
+
+    public function reorderNew(array $orderedIdx): void
+    {
+        $this->newOrder = array_map('intval', $orderedIdx);
+    }
+
+    public function removeExistingImage($key): void
+    {
+        if (isset($this->existingImages[$key])) {
+            $this->toRemove[] = $key;
+        }
     }
 
     public function toggleActive(int $id): void
@@ -633,79 +676,32 @@ class ProductManagement extends Component
         $this->dispatch('toast', ['type'=>'success','message'=>'Product deleted.']);
     }
 
-    /* ---------------------- Reorder from JS ---------------------- */
-
-    public function reorderExisting(array $orderedKeys): void
-    {
-        $this->existingOrder = array_map('intval', $orderedKeys);
-    }
-
-    public function reorderNew(array $orderedIdx): void
-    {
-        $this->newOrder = array_map('intval', $orderedIdx);
-    }
-
-    /* ---------------------- Validation ---------------------- */
-    private function shouldRequirePrice(): bool
-    {
-        // Keep this helper for future use if you want; current dynamic rules are in save()
-        // Require a base price only when NOT reserved, NOT using variants, and there are NO variant rows.
-        return !$this->is_reserved && !$this->use_variants && empty($this->variants);
-    }
-
-    protected function rules(): array
-    {
-        return [
-            'name'         => ['required','string','max:200'],
-            'category_id'  => ['required', Rule::exists('categories','id')],
-            'description'  => ['nullable','string','max:5000'],
-            // 'price' is set dynamically in save() depending on reserved/variants
-            'video_url'    => ['nullable','url','max:255'],
-            'is_reserved'  => ['boolean'],
-            'is_signed'    => ['boolean'],
-            'is_active'    => ['boolean'],
-            'newImages.*'  => ['image','mimes:jpg,jpeg,png,webp','max:4096'],
-            'variants.*.sku'                => ['nullable','string','max:120'],
-            // 'variants.*.price' set dynamically in save()
-            'variants.*.stock'              => ['nullable','integer','min:0'],
-
-            // LEGACY flat list support
-            'variants.*.value_ids'          => ['array'],
-            'variants.*.value_ids.*'        => ['exists:variant_attribute_values,id'],
-
-            // NEW per-attribute structure for multi-selects
-            'variants.*.value_ids_by_attr'      => ['array'],
-            'variants.*.value_ids_by_attr.*'    => ['array'],
-            'variants.*.value_ids_by_attr.*.*'  => ['exists:variant_attribute_values,id'],
-
-            'certificateFile'      => ['nullable','file','mimes:pdf','max:4096'],
-
-            // Auction fields validated dynamically in save()
-            'reserve_price' => ['nullable'],
-            'min_increment' => ['nullable'],
-            'buy_now_price' => ['nullable'],
-        ];
-    }
+    /* ================== Helpers ================== */
 
     protected function resetForm(): void
     {
         $this->reset([
-            'editingId','name','category_id','description','price','video_url','videoId',
-            'is_reserved','is_signed','is_active','status','use_variants',
-            'reserve_price','min_increment','buy_now_price',
+            'editingId','step','name','category_id','use_variants','is_reserved','is_signed','is_active',
+            'price','reserve_price','min_increment','buy_now_price',
+            'description','video_url','videoId',
             'newImages','existingImages','toRemove','existingOrder','newOrder',
-            'variants','certificateFile','hasCertificate'
+            'variants','certificateFile','hasCertificate','status'
         ]);
+        $this->step = 1;
+        $this->status = 'pending';
         $this->is_active = true;
+        $this->use_variants = false;
         $this->is_reserved = false;
         $this->is_signed = false;
-        $this->status = 'pending';
-        $this->use_variants = false;
+        $this->price = '';
         $this->reserve_price = '';
         $this->min_increment = '';
         $this->buy_now_price = '';
-        $this->newImages = [];
+        $this->description = '';
+        $this->video_url = '';
+        $this->videoId = null;
         $this->existingImages = [];
+        $this->newImages = [];
         $this->toRemove = [];
         $this->existingOrder = [];
         $this->newOrder = [];
@@ -715,37 +711,16 @@ class ProductManagement extends Component
         $this->resetValidation();
     }
 
-    public function removeExistingImage($key): void
-    {
-        if (isset($this->existingImages[$key])) {
-            $this->toRemove[] = $key;
-        }
-    }
-
-    private function generateSku(Product $product): string
-    {
-        $base = strtoupper(Str::of($product->name)->slug('')->limit(10, ''));
-        if ($base === '') $base = 'PRD';
-        do {
-            $sku = $base . '-' . $product->id . '-' . strtoupper(Str::random(4));
-        } while (ProductVariant::where('sku', $sku)->exists());
-
-        return $sku;
-    }
-
     private function buildCategoryOptions()
     {
-        // Pull once, then compute full path in memory (no N+1)
         $cats = Category::where('is_active', true)->get(['id','name','parent_id']);
         $byId = $cats->keyBy('id');
 
         $cache = [];
         $pathFor = function ($id) use (&$byId, &$cache) {
             if (isset($cache[$id])) return $cache[$id];
-
             $cur = $byId->get($id);
             if (!$cur) return $cache[$id] = '';
-
             $segments = [$cur->name];
             $pid = $cur->parent_id;
             while ($pid && ($p = $byId->get($pid))) {
@@ -757,12 +732,37 @@ class ProductManagement extends Component
 
         return $cats
             ->map(function ($c) use ($pathFor) {
-                // attach a computed label without changing your DB schema
                 $c->full_name = $pathFor($c->id);
                 return $c;
             })
             ->sortBy('full_name', SORT_NATURAL | SORT_FLAG_CASE)
             ->values();
+    }
+
+    protected function extractYoutubeId(?string $url): ?string
+    {
+        if (!$url) return null;
+        $patterns = [
+            '~youtu\.be/([A-Za-z0-9_-]{6,})~i',
+            '~youtube\.com.*[?&]v=([A-Za-z0-9_-]{6,})~i',
+            '~youtube\.com/embed/([A-Za-z0-9_-]{6,})~i',
+            '~youtube\.com/shorts/([A-Za-z0-9_-]{6,})~i',
+        ];
+        foreach ($patterns as $p) {
+            if (preg_match($p, $url, $m)) return $m[1];
+        }
+        return null;
+    }
+
+    private function generateSku(Product $product): string
+    {
+        $base = strtoupper(Str::of($product->name)->slug('')->limit(10, ''));
+        if ($base === '') $base = 'PRD';
+        do {
+            $sku = $base . '-' . $product->id . '-' . strtoupper(Str::random(4));
+        } while (ProductVariant::where('sku', $sku)->exists());
+
+        return $sku;
     }
 
     public function render()

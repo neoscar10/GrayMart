@@ -20,7 +20,6 @@ class CartPage extends Component
 
     public function mount(): void
     {
-        // If a coupon was applied earlier in the session, hydrate it
         if (session()->has('applied_coupon.code')) {
             $this->coupon_code = session('applied_coupon.code');
             $this->discount    = (float) session('applied_coupon.discount', 0);
@@ -30,45 +29,63 @@ class CartPage extends Component
 
     public function refreshCart(): void
     {
-        // Pull items from cookie and normalize to your Blade keys
         $items = CartManagement::items();
         foreach ($items as &$i) {
-            // Your blade expects 'title', but our products use 'name'
             if (!isset($i['title']) && isset($i['name'])) {
                 $i['title'] = $i['name'];
             }
             $i['quantity']     = (int)   ($i['quantity']     ?? 1);
             $i['unit_amount']  = (float) ($i['unit_amount']  ?? 0);
             $i['total_amount'] = (float) ($i['total_amount'] ?? ($i['quantity'] * $i['unit_amount']));
+            $i['meta']         = is_array($i['meta'] ?? null) ? $i['meta'] : [];
+            $i['is_auction']   = (bool)  (($i['is_auction'] ?? false) || ($i['meta']['is_auction'] ?? false));
         }
         $this->cart_items  = $items;
         $this->grand_total = (float) CartManagement::total();
 
-        // Keep discount sane if cart changed
         if ($this->discount > 0) {
             $this->discount = min($this->discount, $this->grand_total);
         }
     }
 
-    public function increaseQty(int $productId): void
+    public function increaseQty(int $productId, $variantId = null): void
     {
-        CartManagement::increment($productId);
+        $line = $this->findLine($productId, $variantId);
+        if ($line && ($line['is_auction'] ?? false)) {
+            // Auction quantity locked to 1
+            return;
+        }
+        CartManagement::increment($productId, is_null($variantId) ? null : (int)$variantId);
         $this->dispatch('cart-updated');
         $this->refreshCart();
     }
 
-    public function decreaseQty(int $productId): void
+    public function decreaseQty(int $productId, $variantId = null): void
     {
-        CartManagement::decrement($productId);
+        $line = $this->findLine($productId, $variantId);
+        if ($line && ($line['is_auction'] ?? false)) {
+            return;
+        }
+        CartManagement::decrement($productId, is_null($variantId) ? null : (int)$variantId);
         $this->dispatch('cart-updated');
         $this->refreshCart();
     }
 
-    public function removeItem(int $productId): void
+    public function removeItem(int $productId, $variantId = null): void
     {
-        CartManagement::remove($productId);
+        CartManagement::remove($productId, is_null($variantId) ? null : (int)$variantId);
         $this->dispatch('cart-updated');
         $this->refreshCart();
+    }
+
+    private function findLine(int $productId, $variantId = null): ?array
+    {
+        foreach ($this->cart_items as $i) {
+            $sameP = ((int)$i['product_id'] === $productId);
+            $sameV = ((int)($i['variant_id'] ?? 0) === (int)($variantId ?? 0));
+            if ($sameP && $sameV) return $i;
+        }
+        return null;
     }
 
     public function applyCouponIfExists(): void
@@ -84,7 +101,6 @@ class CartPage extends Component
 
         $total = $this->grand_total;
 
-        // If you already have a Coupon model, use it. Otherwise fallback to a demo code.
         if (class_exists(\App\Models\Coupon::class)) {
             $coupon = \App\Models\Coupon::query()
                 ->where('code', $code)
@@ -96,7 +112,6 @@ class CartPage extends Component
                 return;
             }
 
-            // Soft-validate dates/min total only if those columns exist
             $now = now();
             if (isset($coupon->valid_from) && $coupon->valid_from && $now->lt($coupon->valid_from)) {
                 $this->coupon_error = 'Coupon not yet valid.';
@@ -113,7 +128,6 @@ class CartPage extends Component
 
             $type  = $coupon->discount_type ?? 'fixed'; // 'percent' or 'fixed'
             $value = (float) ($coupon->value ?? 0);
-
             if ($value <= 0) {
                 $this->coupon_error = 'Invalid coupon value.';
                 return;
@@ -132,7 +146,6 @@ class CartPage extends Component
             return;
         }
 
-        // Fallback: allow a test coupon if no Coupon model in this project yet
         if ($code === 'WELCOME5') {
             $this->discount = round(min($total * 0.05, $total), 2);
             $this->coupon_error = null;
@@ -144,7 +157,6 @@ class CartPage extends Component
 
     public function render()
     {
-        // Keep total fresh on every render
         $this->grand_total = (float) CartManagement::total();
 
         return view('livewire.front.pages.cart-page', [

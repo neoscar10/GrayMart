@@ -25,15 +25,47 @@ use App\Livewire\Front\Pages\HomePage;
 use App\Livewire\Front\Pages\ShopPage;
 use App\Livewire\Front\Pages\ProductDetailPage;
 use App\Livewire\Front\Pages\CartPage;
+use App\Livewire\Front\Pages\ProductPage;
+use App\Livewire\Front\Pages\CheckoutPage;
+use App\Http\Controllers\PayPalController;
+
+use App\Livewire\Front\Pages\CheckoutSuccess;
+use App\Livewire\Front\Pages\CheckoutCancel;
+use App\Livewire\Vendor\Pages\VendorOrderManagement;
+use App\Http\Controllers\OrderInvoiceController;
+use App\Livewire\Front\Pages\AuctionShow;
+use App\Livewire\Front\Pages\MyOrdersPage;
+use App\Livewire\Front\Store\Show as StoreShow;
+use App\Livewire\Vendor\Pages\AuctionDetails;
+use App\Http\Controllers\Dev\PayPalDiagnosticsController;
+
+
+
+
+Route::get('/auctions/{auction}', AuctionShow::class)->name('store.auctions.show');
+Route::get('/store/{slug}', StoreShow::class)
+    ->name('store.show'); // public vendor store page
+
+Route::get('/checkout/success', CheckoutSuccess::class)->name('checkout.success');
+Route::get('/checkout/cancel',  CheckoutCancel::class)->name('checkout.cancel');
+
 
 Route::get('/cart', CartPage::class)->name('home.cart');
 
 
-Route::get('/product/{slug}', ProductDetailPage::class)->name('store.product');
+Route::get('/product/{slug}', ProductPage::class)->name('store.product');
 
 Route::get('/shop', ShopPage::class)->name('store.shop');
 
 Route::get('/', HomePage::class)->name('store.home');
+Route::get('/checkout', CheckoutPage::class)->name('checkout');
+Route::view('/orders/thank-you', 'thank-you')->name('orders.thankyou');
+Route::get('/account/orders', MyOrdersPage::class)->name('account.orders');
+
+
+Route::get('/orders/{order}/invoice', [OrderInvoiceController::class, 'download'])
+        ->name('orders.invoice');
+
 
 Route::middleware([
     // 'auth:sanctum',
@@ -61,6 +93,9 @@ Route::middleware(['auth', 'verified', 'admin'])->prefix('admin')->name('admin.'
 
     Route::get('/notifications', NotificationsPage::class)
      ->name('notifications.index');
+
+      Route::get('/admin/orders/{order}/invoice', [OrderInvoiceController::class, 'admin'])
+        ->name('orders.invoice');
      
 });
 
@@ -75,8 +110,18 @@ Route::middleware(['auth','vendor',])
          Route::get('/auctions', Auctions::class)->name('auctions.index');
         Route::get('/notifications', NotificationsPage::class)
         ->name('notifications.index');
+        Route::get('/vendor-order-management', VendorOrderManagement::class)->name('order-management');
+        Route::get('/orders/{order}/invoice', [OrderInvoiceController::class, 'download'])
+        ->name('orders.invoice');
+
+        Route::get('/auctions/{auction}', AuctionDetails::class)->name('auction-details');
     });
-
-
-    
+        
 Route::get('/store/{slug}', PublicStoreShow::class)->name('store.show');
+
+
+
+
+
+Route::get('/dev/paypal/ping', [PayPalDiagnosticsController::class, 'ping'])
+     ->middleware('web');

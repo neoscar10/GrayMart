@@ -7,91 +7,183 @@ use Livewire\WithPagination;
 use Livewire\WithFileUploads;
 use App\Models\Category;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Collection;
 
 class CategoryManagement extends Component
 {
     use WithPagination, WithFileUploads;
 
-    // Root listing (paginate roots only)
-    public string $search = '';
-    public string $showActive = ''; // '', '1', '0'
-    public int $perPage = 15;
+    // Explorer state
+    public ?int $currentParentId = null; // null = root ("All Categories")
+    
+    public string $sort = 'manual';      // manual | name | created | status
+    public string $direction = 'asc';    // asc | desc
+    public int $perPage = 24;
 
-    // Tree state for ALL nodes (limitless depth)
+    // Filters
+    public string $search = '';          // searches *current* folder
+    public string $statusFilter = '';    // '', '1', '0'
+
+    // Bulk selection
     /** @var array<int,bool> */
-    public array $expanded = []; // [categoryId => true]
-    /** @var array<int,\Illuminate\Support\Collection> */
-    public array $childrenCache = []; // [parentId => Collection<Category>]
+    public array $selected = [];         // [id => true]
+    public bool $selectAll = false;
 
-    // Create/Edit modal (for any node)
+    // Create/Edit modal
     public ?int $selectedCategoryId = null;
     public ?string $name = null;
     public ?string $slug = null;
     public ?bool $is_active = true;
-    public $image; // Livewire temp upload
+    public $image;                       // Livewire temp upload
     public ?string $image_url = null;
+    public bool $cascadeStatus = false;  // when editing: optionally cascade
 
-    // Inline "Add Subcategory" (single slot at a time)
-    public ?int $addingChildFor = null;
-    public ?string $child_name = null;
-    public ?string $child_slug = null;
-    public ?bool $child_is_active = true;
-    public $child_image;
+    // Move modal
+    public array $selectedForMove = [];
+    public ?int $moveDestinationId = null;
+    public string $moveSearch = '';
+    /** @var array<int,array{id:int,name:string,path:string}> */
+    public array $moveOptions = [];
 
+    // Modal keying
     public int $modalKey = 0;
 
-
-
-
     protected $queryString = [
-        'search' => ['except' => ''],
-        'showActive' => ['except' => ''],
+        'currentParentId' => ['as' => 'folder', 'except' => null],
+        'sort'            => ['except' => 'manual'],
+        'direction'       => ['except' => 'asc'],
+        'search'          => ['except' => ''],
+        'statusFilter'    => ['except' => ''],
+        'perPage'         => ['except' => 24],
     ];
 
-    // ---------- Helpers ----------
-    private function getDescendantIds(Category $cat)
-    {
-        $ids = collect([$cat->id]);
-        foreach ($cat->children as $child) {
-            $ids = $ids->merge($this->getDescendantIds($child));
-        }
-        return $ids->all();
-    }
-
-    // ---------- Validation ----------
+    /* ===========================
+     * Validation
+     * ===========================
+     */
     protected function rules()
     {
-        $uniqueSlug = $this->selectedCategoryId
-            ? 'unique:categories,slug,' . $this->selectedCategoryId
-            : 'unique:categories,slug';
+        $id = $this->selectedCategoryId ?: null;
 
         return [
-            'name'      => 'required|string|min:3',
-            'slug'      => 'nullable|string|' . $uniqueSlug,
-            'is_active' => 'boolean',
-            'image'     => 'nullable|image|max:10240',
+            'name'      => ['required', 'string', 'min:3'],
+            'slug'      => [
+                'nullable', 'string',
+                Rule::unique('categories', 'slug')->ignore($id),
+            ],
+            'is_active' => ['boolean'],
+            'image'     => ['nullable', 'image', 'max:10240'],
         ];
     }
 
-    protected function childRules()
+    /* ===========================
+     * Lifecycle
+     * ===========================
+     */
+    public function updatingSearch()    { $this->resetPage(); }
+    public function updatingStatusFilter(){ $this->resetPage(); }
+    public function updatingSort()      { $this->resetPage(); }
+    public function updatingDirection() { $this->resetPage(); }
+    public function updatingPerPage()   { $this->resetPage(); }
+    public function updatedSelectAll($val)
     {
-        return [
-            'child_name'      => 'required|string|min:3',
-            'child_slug'      => 'nullable|string|unique:categories,slug',
-            'child_is_active' => 'boolean',
-            'child_image'     => 'nullable|image|max:10240',
-        ];
+        if ($val) {
+            foreach ($this->currentFolderQuery()->pluck('id') as $id) {
+                $this->selected[$id] = true;
+            }
+        } else {
+            $this->selected = [];
+        }
     }
 
-    // ---------- Root Create Modal ----------
-    public function openCreateModal()
-{
-    $this->resetRootForm();
-    $this->modalKey++;                
-    $this->dispatch('showCategoryModal');
-}
+    /* ===========================
+     * Explorer navigation
+     * ===========================
+     */
+    public function enter(int $id): void
+    {
+        $this->currentParentId = $id;
+        $this->clearSelection();
+        $this->resetPage();
+    }
 
-    public function createCategory()
+    public function goTo(?int $id): void
+    {
+        $this->currentParentId = $id; // null = root
+        $this->clearSelection();
+        $this->resetPage();
+    }
+
+    public function goUp(): void
+    {
+        if (is_null($this->currentParentId)) return;
+        $parent = Category::find($this->currentParentId);
+        $this->currentParentId = $parent?->parent_id;
+        $this->clearSelection();
+        $this->resetPage();
+    }
+
+    public function breadcrumb(): array
+    {
+        $trail = [];
+        $id = $this->currentParentId;
+        while (!is_null($id)) {
+            $c = Category::find($id);
+            if (!$c) break;
+            $trail[] = ['id' => $c->id, 'name' => $c->name];
+            $id = $c->parent_id;
+        }
+        return array_reverse($trail);
+    }
+
+    /* ===========================
+     * Queries
+     * ===========================
+     */
+    private function currentFolderQuery()
+    {
+        $q = Category::query()
+            ->where('parent_id', $this->currentParentId)
+            ->when($this->search, fn($qq) =>
+                $qq->where('name', 'like', '%' . $this->search . '%')
+            )
+            ->when($this->statusFilter !== '', fn($qq) =>
+                $qq->where('is_active', (bool) $this->statusFilter)
+            )
+            ->withCount('children');
+
+        // Sorting
+        switch ($this->sort) {
+            case 'name':
+                $q->orderBy('name', $this->direction);
+                break;
+            case 'created':
+                $q->orderBy('created_at', $this->direction);
+                break;
+            case 'status':
+                $q->orderBy('is_active', $this->direction)->orderBy('name', 'asc');
+                break;
+            case 'manual':
+            default:
+                $q->orderBy('order_column')->orderBy('name', 'asc');
+        }
+
+        return $q;
+    }
+
+    /* ===========================
+     * Create
+     * ===========================
+     */
+    public function openCreateModal(): void
+    {
+        $this->resetForm();
+        $this->modalKey++;
+        $this->dispatch('showCategoryModal');
+    }
+
+    public function createCategory(): void
     {
         $this->validate();
 
@@ -100,33 +192,37 @@ class CategoryManagement extends Component
         Category::create([
             'name'      => $this->name,
             'slug'      => $this->slug ?: Str::slug($this->name),
-            'parent_id' => null,
+            'parent_id' => $this->currentParentId,
             'is_active' => (bool) $this->is_active,
             'image'     => $path,
         ]);
 
         $this->dispatch('hideCategoryModal');
-        session()->flash('success', 'Root category created.');
-        $this->resetRootForm();
+        session()->flash('success', 'Category created in this folder.');
+        $this->resetForm();
         $this->resetPage();
     }
 
-    // ---------- Edit Modal (any node) ----------
-    public function openEditModal(int $id)
+    /* ===========================
+     * Edit
+     * ===========================
+     */
+    public function openEditModal(int $id): void
     {
         $c = Category::findOrFail($id);
         $this->selectedCategoryId = $c->id;
-        $this->name       = $c->name;
-        $this->slug       = $c->slug;
-        $this->is_active  = (bool)$c->is_active;
-        $this->image_url  = $c->image;
-        $this->image      = null;
+        $this->name               = $c->name;
+        $this->slug               = $c->slug;
+        $this->is_active          = (bool)$c->is_active;
+        $this->image_url          = $c->image;
+        $this->image              = null;
+        $this->cascadeStatus      = false;
 
-        $this->modalKey++;                // <— force fresh modal DOM
+        $this->modalKey++;
         $this->dispatch('showCategoryModal');
     }
 
-    public function updateCategory()
+    public function updateCategory(): void
     {
         $this->validate();
 
@@ -142,134 +238,227 @@ class CategoryManagement extends Component
         $c->is_active = (bool) $this->is_active;
         $c->save();
 
-        // Cascade active flag to descendants
-        $ids = $this->getDescendantIds($c);
-        Category::whereIn('id', $ids)->update(['is_active' => $this->is_active]);
-
-        $this->dispatch('hideCategoryModal');
-        session()->flash('success', 'Category updated (status cascaded).');
-
-        // Refresh the parent of the edited node if it's cached/expanded
-        $parentId = $c->parent_id ?? null;
-        if ($parentId && isset($this->childrenCache[$parentId])) {
-            $this->reloadChildren($parentId);
+        if ($this->cascadeStatus) {
+            $ids = $this->getDescendantIds($c);
+            if (!empty($ids)) {
+                Category::whereIn('id', $ids)->update(['is_active' => $this->is_active]);
+            }
         }
 
-        $this->resetRootForm();
+        $this->dispatch('hideCategoryModal');
+        session()->flash('success', 'Category updated' . ($this->cascadeStatus ? ' (status cascaded).' : '.'));
+
+        $this->resetForm();
     }
 
-    // ---------- Delete ----------
-    public function confirmDelete(int $id)
+    /* ===========================
+     * Inline toggles
+     * ===========================
+     */
+    public function toggleActive(int $id): void
+    {
+        $c = Category::findOrFail($id);
+        $c->is_active = !$c->is_active;
+        $c->save();
+    }
+
+    /* ===========================
+     * Delete (single & bulk)
+     * ===========================
+     */
+    public function confirmDelete(int $id): void
     {
         $this->selectedCategoryId = $id;
         $this->dispatch('showDeleteModal');
     }
 
-    public function deleteCategory()
+    public function deleteCategory(): void
     {
         $c = Category::findOrFail($this->selectedCategoryId);
-        $parentId = $c->parent_id;
-        $c->delete();
-
+        $this->deleteWithDescendants($c);
         $this->dispatch('hideDeleteModal');
-        session()->flash('success', 'Category deleted.');
+        session()->flash('success', 'Category (and its subfolders) deleted.');
+        $this->resetForm();
+        $this->resetPage();
+    }
 
-        if ($parentId) {
-            $this->reloadChildren($parentId);
-        } else {
-            $this->resetPage(); // root deleted
+    public function bulkDelete(): void
+    {
+        $ids = $this->selectedIds();
+        if (empty($ids)) return;
+
+        // Delete each with descendants safely
+        foreach ($ids as $id) {
+            if ($cat = Category::find($id)) {
+                $this->deleteWithDescendants($cat);
+            }
         }
+        $this->clearSelection();
+        session()->flash('success', 'Selected categories deleted.');
+        $this->resetPage();
     }
 
-    // ---------- Expand / Collapse (any node) ----------
-    public function toggleExpand(int $categoryId)
+    /* ===========================
+     * Bulk activate/deactivate
+     * ===========================
+     */
+    public function bulkSetActive(bool $active): void
     {
-        if (empty($this->expanded[$categoryId])) {
-            $this->expanded[$categoryId] = true;
-            $this->loadChildren($categoryId);
-        } else {
-            $this->expanded[$categoryId] = false;
+        $ids = $this->selectedIds();
+        if (empty($ids)) return;
+
+        Category::whereIn('id', $ids)->update(['is_active' => $active]);
+        $this->clearSelection();
+        session()->flash('success', 'Selected categories updated.');
+    }
+
+    /* ===========================
+     * Move (bulk)
+     * ===========================
+     */
+    public function openMoveModal(): void
+    {
+        $this->selectedForMove = $this->selectedIds();
+        if (empty($this->selectedForMove)) return;
+
+        $this->moveDestinationId = null;
+        $this->moveSearch = '';
+        $this->moveOptions = [];
+        $this->dispatch('showMoveModal');
+    }
+
+    public function updatedMoveSearch(): void
+    {
+        $this->moveOptions = $this->searchMoveOptions($this->moveSearch);
+    }
+
+    public function moveSelected(): void
+    {
+        if (empty($this->selectedForMove)) return;
+
+        $dest = $this->moveDestinationId; // may be null (root)
+        // Guard: cannot move into own descendant
+        foreach ($this->selectedForMove as $id) {
+            if (!is_null($dest) && $this->isDescendant($dest, $id)) {
+                session()->flash('error', 'Cannot move a category inside one of its descendants.');
+                return;
+            }
         }
+
+        Category::whereIn('id', $this->selectedForMove)->update(['parent_id' => $dest]);
+
+        $this->dispatch('hideMoveModal');
+        $this->clearSelection();
+        session()->flash('success', 'Selected categories moved.');
+        $this->resetPage();
     }
 
-    public function loadChildren(int $parentId)
+    /* ===========================
+     * Helpers
+     * ===========================
+     */
+    private function resetForm(): void
     {
-        $this->childrenCache[$parentId] = Category::where('parent_id', $parentId)
-            ->orderBy('order_column')
-            ->get();
-    }
-
-    private function reloadChildren(int $parentId): void
-    {
-        if (isset($this->childrenCache[$parentId])) {
-            $this->childrenCache[$parentId] = Category::where('parent_id', $parentId)
-                ->orderBy('order_column')
-                ->get();
-        }
-    }
-
-    // ---------- Inline Add Subcategory ----------
-    public function startAddChild(int $parentId)
-    {
-        $this->resetChildForm();
-        $this->addingChildFor = $parentId;
-
-        if (empty($this->expanded[$parentId])) {
-            $this->expanded[$parentId] = true;
-            $this->loadChildren($parentId);
-        }
-    }
-
-    public function createChild()
-    {
-        $this->validate($this->childRules());
-
-        $parentId = $this->addingChildFor;
-        if (!$parentId) return;
-
-        $path = $this->child_image ? $this->child_image->store('categories', 'public') : null;
-
-        Category::create([
-            'name'      => $this->child_name,
-            'slug'      => $this->child_slug ?: Str::slug($this->child_name),
-            'parent_id' => $parentId,
-            'is_active' => (bool) $this->child_is_active,
-            'image'     => $path,
+        $this->reset([
+            'selectedCategoryId', 'name', 'slug', 'is_active',
+            'image', 'image_url', 'cascadeStatus',
         ]);
-
-        $this->reloadChildren($parentId);
-        $this->resetChildForm();
-        session()->flash('success', 'Subcategory added.');
-    }
-
-    // ---------- Resets ----------
-    private function resetRootForm(): void
-    {
-        $this->reset(['selectedCategoryId','name','slug','is_active','image','image_url']);
         $this->is_active = true;
     }
 
-    private function resetChildForm(): void
+    private function clearSelection(): void
     {
-        $this->reset(['addingChildFor','child_name','child_slug','child_is_active','child_image']);
-        $this->child_is_active = true;
+        $this->selected = [];
+        $this->selectAll = false;
     }
 
-    // ---------- Hooks ----------
-    public function updatingSearch() { $this->resetPage(); }
-    public function updatingShowActive() { $this->resetPage(); }
+    /** @return int[] */
+    private function selectedIds(): array
+    {
+        return array_keys(array_filter($this->selected));
+    }
 
-    // ---------- Render ----------
+    /** @return int[] */
+    private function getDescendantIds(Category $cat): array
+    {
+        $ids = [];
+        foreach ($cat->children as $child) {
+            $ids[] = $child->id;
+            $ids = array_merge($ids, $this->getDescendantIds($child));
+        }
+        return $ids;
+    }
+
+    private function deleteWithDescendants(Category $cat): void
+    {
+        foreach ($cat->children as $child) {
+            $this->deleteWithDescendants($child);
+        }
+        $cat->delete();
+    }
+
+    private function isDescendant(int $candidateId, int $ancestorId): bool
+    {
+        $cur = Category::find($candidateId);
+        while ($cur) {
+            if ($cur->id === $ancestorId) return true;
+            $cur = $cur->parent;
+        }
+        return false;
+    }
+
+    /** @return array<int,array{id:int,name:string,path:string}> */
+    private function searchMoveOptions(string $term): array
+    {
+        $term = trim($term);
+        $excluded = $this->selectedForMove ?? [];
+        $results = Category::query()
+            ->when($term, fn($q) => $q->where('name', 'like', '%' . $term . '%'))
+            ->limit(50)
+            ->get();
+
+        $items = [];
+        foreach ($results as $cat) {
+            if (in_array($cat->id, $excluded, true)) continue;
+            // also exclude descendants of selected
+            $skip = false;
+            foreach ($excluded as $selId) {
+                if ($this->isDescendant($cat->id, $selId)) { $skip = true; break; }
+            }
+            if ($skip) continue;
+
+            $items[] = [
+                'id'   => $cat->id,
+                'name' => $cat->name,
+                'path' => $this->buildPathString($cat),
+            ];
+        }
+        return $items;
+    }
+
+    private function buildPathString(Category $cat): string
+    {
+        $nodes = [];
+        $cur = $cat;
+        while ($cur) {
+            $nodes[] = $cur->name;
+            $cur = $cur->parent;
+        }
+        return implode(' / ', array_reverse($nodes));
+    }
+
+    /* ===========================
+     * Render
+     * ===========================
+     */
     public function render()
     {
-        $roots = Category::whereNull('parent_id')
-            ->when($this->search, fn($q) => $q->where('name', 'like', '%' . $this->search . '%'))
-            ->when($this->showActive !== '', fn($q) => $q->where('is_active', (bool) $this->showActive))
-            ->orderBy('order_column')
-            ->paginate($this->perPage);
+        $categories = $this->currentFolderQuery()->paginate($this->perPage);
 
         return view('livewire.admin.pages.category-management', [
-            'roots' => $roots,
+            'categories' => $categories,
+            'breadcrumb' => $this->breadcrumb(),
+            'currentParent' => $this->currentParentId ? Category::find($this->currentParentId) : null,
         ])->layout('components.layouts.admin');
     }
 }

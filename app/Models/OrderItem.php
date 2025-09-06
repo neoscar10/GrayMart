@@ -13,6 +13,16 @@ class OrderItem extends Model
         'unit_price',
         'total_price',
         'vendor_id',
+        'variant_id',     // NEW
+        'product_name',   // NEW (snapshot)
+        'image',          // NEW (snapshot)
+        'meta',           // NEW (json: variant_label, etc.)
+    ];
+
+    protected $casts = [
+        'meta' => 'array',
+        'unit_price' => 'decimal:2',
+        'total_price'=> 'decimal:2',
     ];
 
     public function order()

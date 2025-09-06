@@ -29,7 +29,6 @@ class ProductDetailPage extends Component
 
     public function render()
     {
-        return view('livewire.front.pages.product-detail-page')
-            ->layout('layouts.store');
+        return view('livewire.front.pages.product-detail-page');
     }
 }
