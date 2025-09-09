@@ -29,7 +29,7 @@
                 </div>
             </li>
 
-            <li class="sidebar-list">
+            {{-- <li class="sidebar-list">
                 <a class="sidebar-link {{ request()->routeIs('vendor.product-management') ? 'active' : '' }}"
                     href="" 
                     @if(request()->routeIs('vendor.product-management')) aria-current="page" @endif>
@@ -38,7 +38,7 @@
                     </svg>
                     <h6>Manage Vendors Products</h6>
                 </a>
-            </li>
+            </li> --}}
 
             <!-- ORDER & PAYMENT -->
             <li class="sidebar-main-title">

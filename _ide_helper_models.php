@@ -13,8 +13,6 @@
 
 namespace App\Models{
 /**
- * 
- *
  * @property int $id
  * @property int $product_id
  * @property int $vendor_id
@@ -54,8 +52,6 @@ namespace App\Models{
 
 namespace App\Models{
 /**
- * 
- *
  * @property int $id
  * @property int $auction_id
  * @property int $user_id
@@ -79,8 +75,6 @@ namespace App\Models{
 
 namespace App\Models{
 /**
- * 
- *
  * @property-read float $computed_grand_total
  * @property-read float $computed_subtotal
  * @property-read \Illuminate\Database\Eloquent\Collection<int, \App\Models\CartItem> $items
@@ -96,8 +90,6 @@ namespace App\Models{
 
 namespace App\Models{
 /**
- * 
- *
  * @property-read \App\Models\Cart|null $cart
  * @property-read \App\Models\Product|null $product
  * @method static \Illuminate\Database\Eloquent\Builder<static>|CartItem newModelQuery()
@@ -109,8 +101,6 @@ namespace App\Models{
 
 namespace App\Models{
 /**
- * 
- *
  * @property int $id
  * @property string $name
  * @property string $slug
@@ -142,8 +132,6 @@ namespace App\Models{
 
 namespace App\Models{
 /**
- * 
- *
  * @property int $id
  * @property int $product_id
  * @property string $file_path
@@ -172,12 +160,19 @@ namespace App\Models{
 
 namespace App\Models{
 /**
- * 
- *
  * @property int $id
  * @property int $user_id
+ * @property int|null $vendor_id
  * @property numeric $total_amount
+ * @property string|null $external_payment_id
+ * @property array<array-key, mixed>|null $external_payment_payload
  * @property string $status
+ * @property string|null $payment_method
+ * @property string $payment_status
+ * @property string $currency
+ * @property numeric $subtotal_amount
+ * @property numeric $shipping_amount
+ * @property numeric $discount_total
  * @property string|null $admin_note Internal note for disputes, set by admin
  * @property array<array-key, mixed> $shipping_address
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -192,23 +187,34 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Order query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereAdminNote($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereCreatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereCurrency($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereDiscountTotal($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereExternalPaymentId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereExternalPaymentPayload($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Order wherePaymentMethod($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Order wherePaymentStatus($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereShippingAddress($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereShippingAmount($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereStatus($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereSubtotalAmount($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereTotalAmount($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereUpdatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereUserId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|Order whereVendorId($value)
  */
 	class Order extends \Eloquent {}
 }
 
 namespace App\Models{
 /**
- * 
- *
  * @property int $id
  * @property int $order_id
  * @property int $product_id
+ * @property string|null $product_name
+ * @property string|null $image
+ * @property array<array-key, mixed>|null $meta
+ * @property int|null $variant_id
  * @property int|null $vendor_id
  * @property int $quantity
  * @property numeric $unit_price
@@ -223,12 +229,16 @@ namespace App\Models{
  * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem query()
  * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereCreatedAt($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereImage($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereMeta($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereOrderId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereProductId($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereProductName($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereQuantity($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereTotalPrice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereUnitPrice($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereUpdatedAt($value)
+ * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereVariantId($value)
  * @method static \Illuminate\Database\Eloquent\Builder<static>|OrderItem whereVendorId($value)
  */
 	class OrderItem extends \Eloquent {}
@@ -236,8 +246,6 @@ namespace App\Models{
 
 namespace App\Models{
 /**
- * 
- *
  * @property int $id
  * @property int $vendor_id
  * @property string $name
@@ -297,8 +305,6 @@ namespace App\Models{
 
 namespace App\Models{
 /**
- * 
- *
  * @property int $id
  * @property int $product_id
  * @property string $sku
@@ -327,8 +333,6 @@ namespace App\Models{
 
 namespace App\Models{
 /**
- * 
- *
  * @property int $id
  * @property int $user_id
  * @property string $rateable_type
@@ -366,8 +370,6 @@ namespace App\Models{
 
 namespace App\Models{
 /**
- * 
- *
  * @property int $id
  * @property int $review_id
  * @property int $reporter_id
@@ -390,8 +392,6 @@ namespace App\Models{
 
 namespace App\Models{
 /**
- * 
- *
  * @property int $id
  * @property string $name
  * @property string $email
@@ -446,8 +446,6 @@ namespace App\Models{
 
 namespace App\Models{
 /**
- * 
- *
  * @property int $id
  * @property string $name
  * @property \Illuminate\Support\Carbon|null $created_at
@@ -467,8 +465,6 @@ namespace App\Models{
 
 namespace App\Models{
 /**
- * 
- *
  * @property int $id
  * @property int $attribute_id
  * @property string $value
@@ -491,8 +487,6 @@ namespace App\Models{
 
 namespace App\Models{
 /**
- * 
- *
  * @property int $id
  * @property int $user_id
  * @property string $store_name

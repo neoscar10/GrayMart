@@ -1,5 +1,7 @@
 <?php
 
+// app/Livewire/FunctionalPartials/MainNavbar.php
+
 namespace App\Livewire\FunctionalPartials;
 
 use Livewire\Component;
@@ -15,25 +17,22 @@ class MainNavbar extends Component
     /** @var \Illuminate\Support\Collection<VendorProfile> */
     public $vendors;
 
-    /** @var array<int,array{id:int,name:string,slug?:string,image?:string}> */
     public array $rootCategories = [];
-
-    /** @var array<int,array<int,array{id:int,name:string,slug?:string,image?:string}>> parent_id => child[] */
     public array $childrenByParent = [];
 
     public function mount(): void
     {
-        // Cart count
+        // Initial count from cookie/cart store
         $this->total_count = count(CartManagement::getCartItemsFromCookie());
 
-        // Vendors (as before)
+        // Vendors for the Shops dropdown (includes logo_path for accessor)
         $this->vendors = VendorProfile::query()
             ->where('published', true)
             ->orderBy('store_name')
             ->limit(60)
-            ->get(['id','user_id','slug','store_name']);
+            ->get(['id','user_id','slug','store_name','logo_path']);
 
-        // Categories: fetch roots + only their direct children (no deep recursion)
+        // Categories (roots + direct children only)
         $roots = Category::query()
             ->whereNull('parent_id')
             ->where('is_active', true)
@@ -41,14 +40,12 @@ class MainNavbar extends Component
             ->orderBy('name')
             ->get(['id','name','slug','image']);
 
-        $this->rootCategories = $roots->map(function($c){
-            return [
-                'id'    => (int) $c->id,
-                'name'  => (string) $c->name,
-                'slug'  => $c->slug,
-                'image' => $c->image,
-            ];
-        })->values()->all();
+        $this->rootCategories = $roots->map(fn($c) => [
+            'id'    => (int) $c->id,
+            'name'  => (string) $c->name,
+            'slug'  => $c->slug,
+            'image' => $c->image,
+        ])->values()->all();
 
         $children = Category::query()
             ->whereIn('parent_id', $roots->pluck('id'))
@@ -74,7 +71,15 @@ class MainNavbar extends Component
     #[On('update-cart-count')]
     public function updateCartCount(int $total_count): void
     {
+        // Fast path: when caller sends the number explicitly
         $this->total_count = $total_count;
+    }
+
+    #[On('cart-updated')]
+    public function refreshCart(): void
+    {
+        // Fallback: recompute from cookie (covers any place that only emits a generic ping)
+        $this->total_count = count(CartManagement::getCartItemsFromCookie());
     }
 
     public function render()

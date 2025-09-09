@@ -1,6 +1,31 @@
 @php use Illuminate\Support\Facades\Storage; @endphp
 
 <div>
+    {{-- Flash (success/error/info) --}}
+    <div class="position-fixed top-0 start-50 translate-middle-x p-3" style="z-index:1080; width: min(520px, 92%);"
+        aria-live="polite" aria-atomic="true">
+        @if (session('success'))
+            <div class="alert alert-success alert-dismissible fade show shadow rounded-12 d-flex align-items-start gap-2"
+                role="alert">
+                <i class="ph-fill ph-check-circle fs-5 mt-1"></i>
+                <div class="flex-grow-1">
+                    {{ session('success') }}
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
+    
+        @if (session('error'))
+            <div class="alert alert-danger alert-dismissible fade show shadow rounded-12 d-flex align-items-start gap-2"
+                role="alert">
+                <i class="ph-fill ph-x-circle fs-5 mt-1"></i>
+                <div class="flex-grow-1">
+                    {{ session('error') }}
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        @endif
+    </div>
     {{-- =============================== Shop Section Start ======================================== --}}
     <section class="shop py-80">
         <div class="container container-lg">
@@ -55,8 +80,8 @@
                             <ul class="list-unstyled m-0 p-0" id="gm-levelcats">
                                 @forelse ($levelCategories as $cat)
                                     @php
-                                        $img = $cat['image'] ? asset('storage/' . $cat['image']) : asset('assets/images/icons/folder.png');
-                                        $kids = $childrenMap[$cat['id']] ?? [];
+    $img = $cat['image'] ? asset('storage/' . $cat['image']) : asset('assets/images/icons/folder.png');
+    $kids = $childrenMap[$cat['id']] ?? [];
                                     @endphp
                                     <li class="mb-8" wire:key="lvl-{{ $cat['id'] }}">
                                         <a href="#" wire:click.prevent="selectCategory({{ $cat['id'] }})"
@@ -143,20 +168,20 @@
                     <div class="list-grid-wrapper">
                         @forelse ($products as $product)
                             @php
-                                $img = (is_array($product->images) && count($product->images))
-                                    ? Storage::url($product->images[0])
-                                    : asset('assets/images/thumbs/product-placeholder.png');
+    $img = (is_array($product->images) && count($product->images))
+        ? Storage::url($product->images[0])
+        : asset('assets/images/thumbs/product-placeholder.png');
 
-                                $basePrice = (float) ($product->p_eff_price ?? $product->price);
-                                $dealPrice = (!is_null($product->buy_now_price) && $product->buy_now_price > 0 && $product->buy_now_price < $product->price)
-                                    ? (float) $product->buy_now_price
-                                    : null;
+    $basePrice = (float) ($product->p_eff_price ?? $product->price);
+    $dealPrice = (!is_null($product->buy_now_price) && $product->buy_now_price > 0 && $product->buy_now_price < $product->price)
+        ? (float) $product->buy_now_price
+        : null;
 
-                                $isLimited = (bool) $product->is_reserved;
+    $isLimited = (bool) $product->is_reserved;
 
-                                $hasVariants = ($product->variants_count ?? 0) > 0;
-                                $vMin = $hasVariants ? (float) $product->v_min_price : null;
-                                $vMax = $hasVariants ? (float) $product->v_max_price : null;
+    $hasVariants = ($product->variants_count ?? 0) > 0;
+    $vMin = $hasVariants ? (float) $product->v_min_price : null;
+    $vMax = $hasVariants ? (float) $product->v_max_price : null;
                             @endphp
 
                             <div class="product-card h-100 p-16 border border-gray-100 hover-border-main-600 rounded-16 position-relative transition-2"
@@ -182,9 +207,9 @@
                                     </h6>
 
                                     @php
-                                        $avg = $product->reviews_avg_rating ? round($product->reviews_avg_rating, 1) : null;
-                                        $count = (int) ($product->reviews_count ?? 0);
-                                        $shop = $product->store_name ?? '—';
+    $avg = $product->reviews_avg_rating ? round($product->reviews_avg_rating, 1) : null;
+    $count = (int) ($product->reviews_count ?? 0);
+    $shop = $product->store_name ?? '—';
                                     @endphp
                                     <div class="flex-between mb-12 mt-16 gap-6">
                                         <div class="flex-align gap-6">
@@ -248,13 +273,13 @@
                                     {{-- CTA --}}
                                     @if ($isLimited)
                                         @php
-                                            // Find the current auction (prefer live over scheduled)
-                                            $auction = $product->auctions()
-                                                ->select('id','starts_at','ends_at','status')
-                                                ->whereIn('status', ['live','scheduled'])
-                                                ->orderByRaw("FIELD(status,'live','scheduled')") // live first
-                                                ->orderBy('starts_at')
-                                                ->first();
+                                    // Find the current auction (prefer live over scheduled)
+                                    $auction = $product->auctions()
+                                        ->select('id', 'starts_at', 'ends_at', 'status')
+                                        ->whereIn('status', ['live', 'scheduled'])
+                                        ->orderByRaw("FIELD(status,'live','scheduled')") // live first
+                                        ->orderBy('starts_at')
+                                        ->first();
                                         @endphp
 
                                         @if($auction)
@@ -264,7 +289,7 @@
                                                 <span>Bid for Item <i class="fa-solid fa-money-check-dollar"></i></span>
                                             </a>
                                         @else
-                                            <button class="product-card__cart btn bg-gray-50 text-muted py-11 px-24 rounded-8 flex-center gap-8 fw-medium"
+                                            <button class="product-card__cart btn bg-gray-700 text-muted py-11 px-24 rounded-8 flex-center gap-8 fw-medium"
                                                     disabled>
                                                 <span>Auction Coming Soon</span>
                                             </button>
@@ -420,3 +445,18 @@
         </div>
     @endif
 </div>
+
+<script>
+    document.addEventListener('livewire:init', () => {
+        const hide = () => {
+            const alerts = document.querySelectorAll('.alert.fade.show');
+            alerts.forEach(a => {
+                const btn = a.querySelector('.btn-close');
+                setTimeout(() => btn?.click(), 2500);
+            });
+        };
+        hide();
+        // Re-run after each Livewire DOM update so freshly-flashed alerts auto-hide
+        Livewire.hook('morph.updated', hide);
+    });
+</script>

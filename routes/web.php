@@ -38,9 +38,11 @@ use App\Livewire\Front\Pages\MyOrdersPage;
 use App\Livewire\Front\Store\Show as StoreShow;
 use App\Livewire\Vendor\Pages\AuctionDetails;
 use App\Http\Controllers\Dev\PayPalDiagnosticsController;
+use App\Livewire\Front\Pages\VendorStorePage;
 
 
 
+Route::get('/stores/{vendor:slug}', VendorStorePage::class)->name('store.vendor');
 
 Route::get('/auctions/{auction}', AuctionShow::class)->name('store.auctions.show');
 Route::get('/store/{slug}', StoreShow::class)
